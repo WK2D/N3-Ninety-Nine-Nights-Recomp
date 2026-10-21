@@ -1,5 +1,6 @@
 #include "frame_rate.h"
 #include "frame_rate_policy.h"
+#include "guest_frame_clock.h"
 #include <rex/ppc.h>
 #include <rex/cvar.h>
 #include <rex/chrono/clock.h>
@@ -20,11 +21,50 @@ void Require(bool value, const char* text) { if (!value) throw std::runtime_erro
 
 int main() {
   try {
-    // Execute the actual translated clock initializer against an isolated guest
-    // stack/object. This exercises its timebase query, division, and saved regs.
+    // Retain the translated initializer as an oracle for the native replacement.
     std::array<uint8_t, 65536> bytes{};
     constexpr uint32_t object = 256;
     constexpr uint64_t frequency = 50000000;
+    // Differential check against the retained translated initializer. Compare
+    // the complete 48-byte object (including padding/flags), normalizing only
+    // its nondeterministic timebase sample. Stack scratch is caller-owned.
+    for (uint32_t fps : {30u, 40u, 60u}) {
+      for (uint64_t hz : std::array<uint64_t, 6>{0, 1, 1000, 50000000, 0xffffffff, 0x100000011ull}) {
+        std::array<uint8_t, 65536> original{}, replacement{};
+        for (uint32_t i = 0; i < 48; ++i) original[object + i] = uint8_t(i * 37 + 19);
+        rex::memory::store_and_swap<uint32_t>(original.data() + object + 4, fps);
+        rex::memory::store_and_swap<uint32_t>(original.data() + object + 8, 0x3c123456u);
+        replacement = original;
+        rex::chrono::Clock::set_guest_tick_frequency(hz);
+        PPCContext translated{};
+        translated.r1.u32 = 61440; translated.r3.u32 = object;
+        translated.r30.u64 = 0x123456789abcdef0; translated.r31.u64 = 0xfedcba9876543210;
+        translated.lr = 0x82248d00;
+        __imp__sub_82248D38(translated, original.data());
+        Require(rex::cvar::SetFlagByName("n3_frame_rate", "0"), "Cannot select original clock policy");
+        InitializeFrameRate();
+        PPCContext native{};
+        native.r1.u32 = 61440; native.r3.u32 = object;
+        native.r30.u64 = translated.r30.u64; native.r31.u64 = translated.r31.u64;
+        native.lr = translated.lr;
+        const auto before = rex::chrono::Clock::QueryGuestTickCount();
+        sub_82248D38(native, replacement.data());
+        const auto after = rex::chrono::Clock::QueryGuestTickCount();
+        const n3::guest::FrameClockView original_view(original.data(), object);
+        const n3::guest::FrameClockView native_view(replacement.data(), object);
+        const auto actual = native_view.Read();
+        Require(actual.frame_started_at >= before && actual.frame_started_at <= after,
+                "Native initializer used a different clock source");
+        auto expected = original_view.Read();
+        expected.frame_started_at = actual.frame_started_at;
+        original_view.Write(expected);
+        Require(std::equal(original.begin() + object, original.begin() + object + 48,
+                           replacement.begin() + object), "Native and translated clock objects differ");
+        Require(native.r3.u64 == translated.r3.u64 && native.r1.u64 == translated.r1.u64 &&
+                native.r30.u64 == translated.r30.u64 && native.r31.u64 == translated.r31.u64 &&
+                native.lr == translated.lr, "Native initializer broke its guest calling convention");
+      }
+    }
     Require(rex::cvar::SetFlagByName("n3_frame_rate", "40") && ConfiguredFrameRate() == 40,
             "A menu rate change must be visible before a gameplay clock exists");
     rex::chrono::Clock::set_guest_tick_frequency(frequency);
@@ -92,6 +132,6 @@ int main() {
     const auto* setting = rex::cvar::GetFlagInfo("n3_frame_rate");
     Require(setting && setting->lifecycle == rex::cvar::Lifecycle::kHotReload && !setting->is_debug_only && setting->default_value == "30",
             "FPS mode is not available as a live player setting");
-    std::cout << "Original translated clock, live 30/40/60 switching, global clocks, interval policy, and hook registration passed\n";
+    std::cout << "Native/translated clock equivalence, live 30/40/60 switching, global clocks, interval policy, and hook registration passed\n";
   } catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
 }

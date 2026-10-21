@@ -265,6 +265,27 @@ A workflow exercises the portable subset on Windows, Linux and Apple Silicon.
 These components do not establish a Mac game build. See [porting roadmap](PORTING.md)
 for the Vulkan/runtime work and native gameplay boundaries.
 
+## Native frame-clock module
+
+The game clock initializer at `0x82248D38` now uses a portable typed C++ module
+for recognized rates, with a separate big-endian guest-memory adapter and the
+original translated entry retained for unknown modes. The native model also
+handles live rate/period updates without enabling suspended clocks. An 18-case
+comparison against the translated initializer checks the full clock object,
+original step bits, timebase sampling, frequency truncation and calling convention.
+The portable suite checks invalid inputs without mutation. See
+[native code boundaries](NATIVE-CODE.md). This change does not establish corrected
+animation/combat timing or improved frame rates.
+
+Release and RelWithDebInfo pass nine native suites. An isolated 26-second Release
+startup uses Direct3D 12, exercises the native initializer at 60 FPS, and continues
+presenting until the harness stops its own child. That check uses a fresh profile
+and does not establish gameplay correctness or a timing fix. The Release binary
+passes the existing build-machine identifier scan.
+
+The active development source and launcher use Direct3D 12. The Vulkan prototype
+is parked locally after a system-freeze report; no Vulkan change is released.
+
 ## Next validation work
 
 1. Measure original-mode gameplay in the same scene and correct the accelerated

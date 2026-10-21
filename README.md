@@ -146,8 +146,8 @@ pwsh -NoProfile -File tools/smoke.ps1 -Seconds 30
 pwsh -NoProfile -File tools/symbolize-fault.ps1
 ```
 
-The build runs callback floating-point, disc importer, game-path, crash-report,
-frame-rate, menu-layout, profile persistence, and host presentation regression tests. The Xenos GPU
+The build runs native clock, callback floating-point, disc importer, game-path,
+crash-report, frame-rate, menu-layout, profile persistence, and host presentation regression tests. The Xenos GPU
 plugin is rebuilt from the pinned SDK source with the local live-resolution
 extension in `tools/gpu/`. The first build downloads the corresponding SDK sources
 when necessary; `-Python` selects the Python executable for preparation.
@@ -178,6 +178,9 @@ notices, scans binaries for local identifiers, and writes ZIP checksums under
 `out/release/`. Inspect and test that package before publishing.
 
 ## References
+
+The [native engine module notes](docs/NATIVE-CODE.md) describe the typed frame
+clock, guest-memory boundary, and comparisons against the translated game code.
 
 The next platform work targets Vulkan and Apple Silicon. Portable native
 components can already build without game data or the Xbox runtime; the full

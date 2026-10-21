@@ -1,5 +1,6 @@
 #include "frame_rate.h"
 #include "frame_rate_policy.h"
+#include "guest_frame_clock.h"
 #include <rex/ppc.h>
 #include <rex/runtime.h>
 #include <rex/logging.h>
@@ -68,21 +69,35 @@ void PacePresent() {
 extern "C" void __imp__sub_82248D38(PPCContext& ctx, uint8_t* base);
 extern "C" void sub_82248D38(PPCContext& ctx, uint8_t* base) {
   const auto clock = ctx.r3.u32;
-  const auto original = Read32(base, clock + 4);
+  const n3::guest::FrameClockView view(base, clock);
+  auto state = view.Read();
+  const auto original = state.frames_per_second;
   if (n3::frames::SupportsClock(original)) {
     // Scene changes may reinitialize the already-overridden clock.
     if (clock != frame_clock) {
       frame_clock = clock;
       native_fps = original;
-      native_step = Read32(base, clock + 8);
+      native_step = state.step_seconds_bits;
     }
     const auto target = requested_fps.load();
-    Write32(base, clock + 4, target ? target : native_fps);
-    Write32(base, clock + 8, target ? n3::frames::StepSecondsBits(target) : native_step);
-    active_fps.store(target);
+    state.frames_per_second = target ? target : native_fps;
+    state.step_seconds_bits = target ? n3::frames::StepSecondsBits(target) : native_step;
+    // The pinned Xbox import returns a 32-bit frequency. Keep that behavior,
+    // and keep audio/movie/global clock scaling untouched.
+    const auto frequency = static_cast<uint32_t>(rex::chrono::Clock::guest_tick_frequency());
+    if (n3::native::InitializeFrameClock(state, frequency, rex::chrono::Clock::QueryGuestTickCount())) {
+      view.Write(state);
+      view.Enable();
+      active_fps.store(target);
+      REXLOG_DEBUG("Native frame clock initialized: {} FPS, {} ticks/second, {} ticks/frame",
+                   state.frames_per_second, state.ticks_per_second, state.ticks_per_frame);
+      // The original's final timebase helper returns success in r3. Other
+      // caller-saved registers are unspecified; nonvolatile state is untouched.
+      ctx.r3.u64 = 1;
+      return;
+    }
   }
-  // Recomputes frequency / FPS and initializes the guest deadline. Do not scale
-  // the host/guest clocks globally: audio and movie playback use those clocks.
+  // Keep unrecognized clock modes on the original implementation.
   __imp__sub_82248D38(ctx, base);
 }
 
@@ -139,14 +154,13 @@ void ApplyFrameRateAtBoundary(uint8_t* base) {
   const auto target = requested_fps.load();
   if (!frame_clock || target == active_fps.load()) return;
   const auto fps = target ? target : native_fps;
-  const auto frequency = rex::memory::load_and_swap<uint64_t>(base + frame_clock + 16);
-  if (!frequency || !n3::frames::SupportsClock(fps)) return;
-  Write32(base, frame_clock + 4, fps);
-  Write32(base, frame_clock + 8, target ? n3::frames::StepSecondsBits(fps) : native_step);
-  rex::memory::store_and_swap<uint64_t>(base + frame_clock + 40, frequency / fps);
+  const n3::guest::FrameClockView view(base, frame_clock);
+  auto state = view.Read();
+  if (!n3::native::ChangeFrameClockRate(state, fps,
+      target ? n3::frames::StepSecondsBits(fps) : native_step,
+      rex::chrono::Clock::QueryGuestTickCount())) return;
   // Start a fresh deadline without enabling a clock the game has suspended.
-  rex::memory::store_and_swap<uint64_t>(base + frame_clock + 24,
-      rex::chrono::Clock::QueryGuestTickCount());
+  view.Write(state);
   active_fps.store(target);
   REXLOG_INFO("N3 frame-rate target applied: {}", fps);
 }

@@ -51,6 +51,11 @@ are D3D12-specific and require separate Vulkan implementations.
 
 ## Deeper game changes
 
+The first extracted engine primitive is the [native frame clock](NATIVE-CODE.md).
+It is independent of the graphics backend and is checked against the retained
+translated initializer. The active game build remains on Direct3D 12; Vulkan
+development is parked following a system-freeze report.
+
 First establish original-speed timing: trace animation, combat and scripted
 event updates at the same gameplay point across 30/40/60 FPS. The current clock
 hooks do not establish correct animation speed. Extract understood routines into
