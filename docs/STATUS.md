@@ -1,6 +1,7 @@
 # Development status
 
-Recorded 21 October 2026. This is an initial boot milestone, not a finished port.
+Recorded 21 October 2026. Initial gameplay is reached; full-game coverage remains
+unvalidated.
 
 ## Verified
 
@@ -16,6 +17,7 @@ Recorded 21 October 2026. This is an initial boot milestone, not a finished port
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
 - Main menu and character selection reached, followed by the opening cutscene.
+- Replay progresses past the previous opening-cutscene crash and reaches gameplay.
 - Desktop shortcut follows the stable launcher, using a 1280 x 720 window.
 
 ## Corrections made during first boot
@@ -25,7 +27,7 @@ Recorded 21 October 2026. This is an initial boot milestone, not a finished port
 | `0x8253F950` | Direct branch at `0x8254698C` in an object-adjustment thunk | Seed function discovery; generated body ends at `0x8253FA18` |
 | `0x82588FF8` | Startup indirect-call trap | Seed discovery; generated body is a small tail-call initializer |
 | `0x8253ED08` | Indirect-call trap during audio initialization | Seed discovery; preserve generated implementation |
-| `0x8215B150` | Runtime indirect-call trap during the opening cutscene | Seed discovery; original function generated and registered; scene replay pending |
+| `0x8215B150` | Runtime indirect-call trap during the opening cutscene | Seed discovery; original function generated and registered; replay reaches gameplay |
 
 The SDK's audio worker invokes guest callback `0x8253A590`. A first-chance fault
 trace found `0xC000008F` with host MXCSR `0x8060` while executing the generated
@@ -44,12 +46,13 @@ The first cutscene run exhibited presentation glitches and terminated at an
 unregistered indirect target, `0x8215B150`. The target is now included in strict
 function discovery, emitted as an original-code translation, and present in both
 generated function registration tables. The native rebuild and callback FP test
-pass. Replaying the same scene is required to establish whether this removes the
-observed crash. The presentation glitches have not been diagnosed.
+pass. Replay progresses past the previous failure point and reaches gameplay.
+This validates the correction on the opening route; it does not establish broader
+cutscene coverage or resolve the earlier presentation glitches.
 
 ## Next validation work
 
-1. Replay the opening cutscene, then start a mission and verify input and audio.
+1. Validate sustained gameplay, input responsiveness, audio, and mission completion.
 2. Exercise rendering and combat, including effects and large enemy counts.
 3. Verify save/load in a disposable profile, then repeat across restarts.
 4. Compare scenes and timing against console or emulator reference captures.
