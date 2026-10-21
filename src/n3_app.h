@@ -7,6 +7,8 @@
 #include <rex/rex_app.h>
 #include "crash_diagnostics.h"
 #include "runtime_fixes.h"
+#include "game_setup.h"
+#include <rex/ui/flags.h>
 
 class N3App : public rex::ReXApp {
  public:
@@ -20,11 +22,41 @@ class N3App : public rex::ReXApp {
 
   void OnPreSetup(rex::RuntimeConfig& config) override {
     if (config.gpu_plugin.empty()) config.gpu_plugin = "xenos";
+    if (rex::cvar::GetFlagSource("fullscreen") == rex::cvar::Source::kDefault)
+      REXCVAR_SET(fullscreen, false);
+    if (rex::cvar::GetFlagSource("window_width") == rex::cvar::Source::kDefault)
+      REXCVAR_SET(window_width, 1280);
+    if (rex::cvar::GetFlagSource("window_height") == rex::cvar::Source::kDefault)
+      REXCVAR_SET(window_height, 720);
   }
 
   void OnPostInitLogging() override { InstallCrashDiagnostics(); }
 
   void OnPostLoadXexImage() override { InstallRuntimeFixes(*runtime()); }
+
+  std::optional<rex::PathConfig> OnFinalizePaths(const rex::PathConfig& defaults,
+      std::function<void(rex::PathConfig)>) override {
+    auto paths = ResolveGameData(defaults);
+    if (!paths && window()) window()->RequestClose();
+    return paths;
+  }
+
+  void OnConfigurePaths(rex::PathConfig& paths) override {
+    ConfigureGamePaths(paths);
+    paths.config_path = paths.user_data_root / "n3.toml";
+  }
+
+  void OnConfigureLogging(rex::LogConfig& config) override {
+    config.log_dir = game_profile_ / "logs";
+  }
+
+ private:
+  std::filesystem::path game_profile_;
+
+  void ConfigureGamePaths(rex::PathConfig& paths) {
+    ConfigureGameDataPaths(paths);
+    game_profile_ = paths.user_data_root;
+  }
 
   // Override virtual hooks for customization:
   // void OnLoadXexImage(std::string& xex_image) override {}
@@ -34,5 +66,4 @@ class N3App : public rex::ReXApp {
   // std::unique_ptr<rex::ui::AchievementNotificationDialog>
   // CreateAchievementNotificationDialog() override;
   // void OnShutdown() override {}
-  // void OnConfigurePaths(rex::PathConfig& paths) override {}
 };

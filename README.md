@@ -5,17 +5,33 @@ the Xbox 360 executable with [ReXGlue](https://github.com/rexglue/rexglue-sdk).
 PowerPC game code is translated to C++ ahead of time. ReXGlue supplies the Xbox
 runtime and its Xenos GPU plugin uses Direct3D 12.
 
-**Current milestone:** the windowed build reaches the main menu, character
-selection, and gameplay beyond the previous opening-cutscene crash. Initial
-gameplay is working; sustained combat, mission completion, saves, and full-game
-coverage remain unvalidated. Earlier cutscene presentation glitches still need
-comparison. See [development status](docs/STATUS.md).
+**First Windows alpha:** the opening mission has been completed, the following
+cutscene played, and a save written successfully. Full-game coverage and loading
+saves across restarts remain unvalidated. See [development status](docs/STATUS.md).
 
 No game assets, original executable, generated game translations, or downloaded
 toolchain binaries are tracked. Supply your own game data. The supported executable
 is identified in [game-build.json](docs/game-build.json).
 
-## Run the current build
+## Play the Windows alpha
+
+Download the Windows x64 ZIP from [Releases](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases),
+extract the whole archive, and run **n3.exe**. Select an ISO made from your own
+disc, or `default.xex` in your own extracted game folder with `data/` beside it.
+Setup checks the executable's SHA-256 and remembers the local folder. Importing
+an ISO needs about 5.8 GB of free space; the original image stays unchanged.
+
+The supported USA/Europe executable is version **0.0.0.3**. Other revisions are
+rejected. Windows 10/11 x64, Direct3D 12, and an Xbox-compatible controller are
+the current target. No Node.js, Python, or build tools are needed to play.
+
+The app defaults to a **1280 x 720 window**. Saves, settings, imported data,
+caches, and logs default to `%LOCALAPPDATA%\N3Recompiled`. Keep this profile
+folder when updating; replace the application folder with the new release.
+An existing extracted game folder is linked in place. The package contains
+no game assets or original executable. See the [release guide](docs/RELEASE-README.txt).
+
+## Run a development build
 
 Double-click **N3 Recompiled** on the desktop, or run:
 
@@ -69,7 +85,8 @@ pwsh -NoProfile -File tools/smoke.ps1 -Seconds 30
 pwsh -NoProfile -File tools/symbolize-fault.ps1
 ```
 
-The build runs the callback floating-point regression test. Smoke tests stop
+The build runs callback floating-point, disc importer, and game-path regression
+tests. Smoke tests stop
 their own child process at the deadline and record the result under `logs/`;
 survival alone does not establish correct rendering or gameplay. Smoke runs use
 the same local profile as the launcher, so use separate profile copies for future
@@ -78,6 +95,12 @@ save regression testing.
 Analysis hints belong in `n3_manifest.toml`, and runtime fixes belong in `src/`.
 Do not hand-edit generated translations. `generated/rexglue.cmake` is SDK build
 integration boilerplate and is the only tracked file in `generated/`.
+
+For a Windows release, build the `Release` configuration, run
+`python tools/bundle-sdk-source.py`, then `python tools/package-release.py`.
+The packaging tool admits an explicit set of runtime files, carries third-party
+notices, scans binaries for local identifiers, and writes ZIP checksums under
+`out/release/`. Inspect and test that package before publishing.
 
 ## References
 

@@ -1,7 +1,7 @@
 # Development status
 
-Recorded 21 October 2026. Initial gameplay is reached; full-game coverage remains
-unvalidated.
+Recorded 21 October 2026. The opening mission, following cutscene, and writing a
+save have been exercised successfully. Full-game coverage remains unvalidated.
 
 ## Verified
 
@@ -10,15 +10,24 @@ unvalidated.
 - Identified title `4D5307DB`, media `5D48689C`, executable version `0.0.0.3`.
 - Strict ReXGlue analysis/codegen succeeds without `--force`.
 - Generated 13,762 function assignments across 87 translated C++ source files.
-- Windows x64 RelWithDebInfo compile and link succeeds with portable Clang 20.1.8.
+- Windows x64 Release and RelWithDebInfo compile and link succeed with Clang 20.1.8.
 - Runtime initializes Direct3D 12, input, audio, and XEX imports.
-- Five extractor tests and the callback floating-point regression test pass.
+- Five JavaScript extractor tests and three native regression suites pass.
 - A 30-second boot test survived until the harness stopped it, without the prior
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
 - Main menu and character selection reached, followed by the opening cutscene.
 - Replay progresses past the previous opening-cutscene crash and reaches gameplay.
+- Opening mission completed, the next cutscene played, and a save written.
 - Desktop shortcut follows the stable launcher, using a 1280 x 720 window.
+- The packaged Release binary initializes GPU, audio, input, and guest execution
+  from a remembered game path and survives a 58-second isolated startup run.
+  The harness stops that child; this check does not establish visual correctness.
+- Native ISO import produces all 3,342 files with matching SHA-256 hashes against
+  the original verified extraction. No game material is bundled with the release.
+- Import cancellation cleans up its newly created output; existing destinations
+  are rejected without alteration. Wrong revisions and malformed disc entries
+  are rejected. Explicit and remembered game folders are revalidated.
 
 ## Corrections made during first boot
 
@@ -47,13 +56,30 @@ unregistered indirect target, `0x8215B150`. The target is now included in strict
 function discovery, emitted as an original-code translation, and present in both
 generated function registration tables. The native rebuild and callback FP test
 pass. Replay progresses past the previous failure point and reaches gameplay.
-This validates the correction on the opening route; it does not establish broader
-cutscene coverage or resolve the earlier presentation glitches.
+The opening route now extends through mission completion and the following
+cutscene. This does not establish broader cutscene coverage or resolve every
+previously observed presentation glitch.
+
+## Alpha distribution
+
+The first Windows x64 alpha adds native first-launch selection of an ISO or an
+extracted `default.xex`, executable hash verification, optional one-time disc
+import, and a remembered local game path. Direct EXE startup defaults to a
+1280 x 720 window. Explicit runtime settings retain precedence. Release profiles
+default to `%LOCALAPPDATA%\N3Recompiled`; development launcher profiles stay
+under `private/`.
+
+The package uses an explicit file allowlist, includes runtime dependencies and
+third-party notices, omits PDBs and local game/profile/log data, and checks binary
+strings for build-machine identifiers. Corresponding SDK/dependency sources and
+their pinned revision manifest accompany the release. The picker and progress
+dialog still need a completed visual interaction check; importer and path logic
+have native automated coverage.
 
 ## Next validation work
 
-1. Validate sustained gameplay, input responsiveness, audio, and mission completion.
-2. Exercise rendering and combat, including effects and large enemy counts.
+1. Repeat the opening route on the packaged Release build and other PCs.
+2. Exercise later missions, characters, rendering effects, and large enemy counts.
 3. Verify save/load in a disposable profile, then repeat across restarts.
 4. Compare scenes and timing against console or emulator reference captures.
 5. Investigate additional indirect targets or translation problems from logs.

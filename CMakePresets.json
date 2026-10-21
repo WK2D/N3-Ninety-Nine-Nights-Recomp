@@ -86,7 +86,7 @@
             "name": "win-amd64-release",
             "displayName": "Windows AMD64 Release",
             "inherits": "windows-base",
-            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+            "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "REXGLUE_RECOMP_DEBUG_INFO": "none" }
         },
         {
             "name": "linux-amd64-debug",
