@@ -46,7 +46,7 @@ void PacePresent() {
   using Clock = std::chrono::steady_clock;
   thread_local uint32_t previous_target = 0;
   thread_local Clock::time_point deadline{};
-  const auto target = active_fps.load();
+  const auto target = ConfiguredFrameRate();
   if (!target) { previous_target = 0; return; }
   const auto period = std::chrono::nanoseconds(1000000000 / target);
   auto now = Clock::now();
@@ -90,7 +90,7 @@ extern "C" void __imp__sub_823AA3B0(PPCContext& ctx, uint8_t* base);
 extern "C" void sub_823AA3B0(PPCContext& ctx, uint8_t* base) {
   const auto address = ctx.r3.u32 + n3::frames::kPresentIntervalOffset;
   const auto original = Read32(base, address);
-  const auto interval = n3::frames::PresentInterval(original, active_fps.load());
+  const auto interval = n3::frames::PresentInterval(original, ConfiguredFrameRate());
   if (interval != original) Write32(base, address, interval);
   __imp__sub_823AA3B0(ctx, base);
   if (interval != original) Write32(base, address, original);
@@ -115,7 +115,10 @@ void InitializeFrameRate() {
   REXLOG_INFO("N3 frame-rate target: {}", target);
 }
 
-uint32_t ConfiguredFrameRate() { return requested_fps.load(); }
+uint32_t ConfiguredFrameRate() {
+  const auto configured = rex::cvar::Query<uint32_t>("n3_frame_rate");
+  return !configured || n3::frames::SupportsClock(configured) ? configured : requested_fps.load();
+}
 
 bool SetFrameRate(uint32_t fps) {
   if (!n3::frames::SupportsClock(fps)) return false;

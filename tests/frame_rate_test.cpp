@@ -25,6 +25,8 @@ int main() {
     std::array<uint8_t, 65536> bytes{};
     constexpr uint32_t object = 256;
     constexpr uint64_t frequency = 50000000;
+    Require(rex::cvar::SetFlagByName("n3_frame_rate", "40") && ConfiguredFrameRate() == 40,
+            "A menu rate change must be visible before a gameplay clock exists");
     rex::chrono::Clock::set_guest_tick_frequency(frequency);
     const auto scalar = rex::chrono::Clock::guest_time_scalar();
     auto read = [&](uint32_t at) { return rex::memory::load_and_swap<uint32_t>(bytes.data() + at); };

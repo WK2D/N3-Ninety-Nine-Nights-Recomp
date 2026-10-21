@@ -1,4 +1,4 @@
-N3 Recompiled - v0.1.0-alpha.2 (Windows x64)
+N3 Recompiled - v0.1.0-alpha.3 (Windows x64)
 
 GET STARTED
 1. Extract the entire Windows x64 ZIP to a writable folder.
@@ -38,10 +38,11 @@ confirmation and remain selected when reopening the page.
 - Anisotropic filtering: Game default, Off, 2x, 4x, 8x or 16x.
 - Display resolution: 720p, 1080p, 1440p or 4K window/output size.
 - Render resolution: 720p (1x), 1440p (2x) or 4K (3x) internal rendering.
-All four controls apply without restarting. Render changes can briefly pause
-while GPU resources and shaders are rebuilt. Display sizing applies to normal
-windows; maximized/fullscreen output follows the desktop. Windows scaling may
-round window dimensions slightly. Display size and internal rendering are
+- VSync: On or Off, applied to Windows presentation independently of game timing.
+All five controls apply without restarting. Render changes can briefly pause
+while GPU resources and shaders are rebuilt. Selecting display size restores a
+maximized/fullscreen window and applies exact physical client dimensions. Large
+windows may extend beyond the desktop. Display size and internal rendering are
 independent. 1080p is available as display output; internal scales are integer.
 
 OPTIONAL COMMAND LINE

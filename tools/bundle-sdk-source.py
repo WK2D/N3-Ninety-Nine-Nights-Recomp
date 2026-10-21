@@ -78,7 +78,8 @@ def main():
         results = list(pool.map(lambda job: (job[0], *snapshot(job[1], job[2])), jobs))
     destination = OUT / "ReXGlue-bd833a2-corresponding-source.zip"
     extension_files = ["tools/prepare-gpu.py", "tools/gpu/CMakeLists.txt",
-                       "tools/gpu/d3d12_live_resolution.inc", "tools/build.ps1"]
+                       "tools/gpu/d3d12_live_resolution.inc", "tools/gpu/d3d12_sampler_audit.inc",
+                       "tools/build.ps1", "src/graphics_policy.h"]
     extension_manifest = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
                           for name in extension_files}
     with zipfile.ZipFile(destination, "w", compresslevel=6) as archive:

@@ -13,6 +13,7 @@
 #include "display_settings.h"
 #include "profile_config.h"
 #include "graphics_notification.h"
+#include "graphics_audit.h"
 #include <rex/ui/flags.h>
 class N3App : public rex::ReXApp {
  public:
@@ -34,11 +35,14 @@ class N3App : public rex::ReXApp {
       REXCVAR_SET(window_height, 720);
   }
 
-  void OnPostSetup() override { InstallDisplaySettings(app_context(), *window()); }
+  void OnPostSetup() override {
+    InstallDisplaySettings(app_context(), *window());
+    InstallGraphicsAudit(app_context());
+  }
   void OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) override {
     graphics_notification_ = CreateGraphicsNotification(drawer);
   }
-  void OnShutdown() override { graphics_notification_.reset(); ShutdownDisplaySettings(); }
+  void OnShutdown() override { ShutdownGraphicsAudit(); graphics_notification_.reset(); ShutdownDisplaySettings(); }
   void OnWindowPixelSizeChanged(uint32_t width, uint32_t height) override {
     RecordDisplayOutputSize(width, height);
   }

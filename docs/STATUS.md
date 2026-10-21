@@ -13,7 +13,7 @@ the tested opening route. Full-game coverage remains unvalidated.
 - Generated 13,762 function assignments across 87 translated C++ source files.
 - Windows x64 Release and RelWithDebInfo compile and link succeed with Clang 20.1.8.
 - Runtime initializes Direct3D 12, input, audio, and XEX imports.
-- Five JavaScript extractor tests and seven native regression suites pass.
+- Five JavaScript extractor tests and eight native regression suites pass.
 - A 30-second boot test survived until the harness stopped it, without the prior
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
@@ -191,6 +191,38 @@ The extracted alpha 2 Windows ZIP passes all packaged-file hash checks, reuses a
 remembered local game folder, installs Graphics, and applies live 2x rendering.
 It continues presenting until the isolated harness stops its child at 24 seconds;
 this packaged startup check does not extend gameplay compatibility claims.
+
+## Graphics audit and host VSync (development)
+
+The native Graphics page now includes VSync On/Off below render resolution.
+The pinned SDK's `vsync` flag controls guest vblank scheduling, while its original
+Windows presenter always uses immediate presentation. The project presenter
+controls DXGI directly with a separate saved `n3_vsync` setting. On uses interval 1,
+a one-frame latency limit, a waitable swap chain polled before rendering, and
+`DXGI_PRESENT_DO_NOT_WAIT`; Off uses interval 0 with tearing only when supported.
+The shared callback types and runtime/provider remain unchanged. The initial
+blocking interval-1 implementation slowed menus; the nonblocking path has been
+checked interactively and restores responsiveness with VSync On.
+See Microsoft's [frame latency guidance](https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_3/nf-dxgi1_3-idxgiswapchain2-getframelatencywaitableobject).
+
+Menu presentation now reads the requested FPS independently of gameplay-clock
+initialization. Anisotropic Off disables anisotropy consistently, including
+textures outside the forced-filter eligibility policy. Positive overrides retain
+point/base-map behavior for ineligible textures. A GPU-thread probe uses isolated
+fetch registers, the actual sampler-parameter implementation and real D3D12
+sampler creation to check each override and eligibility case, without modifying
+game registers or settings files.
+
+Renderer audit traces show 1280x720, 1920x1080, 2560x1440 and 3840x2160 physical
+window clients, and 1280x720/2560x1440/3840x2160 rendered swap sources. Exact sizing
+corrects DPI rounding and restores a maximized window when selecting a preset;
+oversized normal windows can extend beyond the display. Runtime-loaded plugin
+staging now runs even when only GPU sources changed. Eight native suites pass.
+The audit is an isolated developer probe; video cadence, descriptor verification
+and successful resizing do not establish full-game graphics or animation timing.
+The final Release audit completed all six sequences with every required backend
+check passing through `tools/verify-graphics-audit.py`. Alpha 3 includes these
+corrections and the nonblocking VSync menu control.
 
 ## Frame-rate validation limits
 

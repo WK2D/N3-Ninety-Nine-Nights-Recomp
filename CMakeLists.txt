@@ -29,6 +29,8 @@ set(N3_SOURCES
     src/graphics_menu.cpp
     src/graphics_menu_assets.cpp
     src/graphics_notification.cpp
+    src/graphics_settings.cpp
+    src/graphics_audit.cpp
 )
 
 if(WIN32)
@@ -75,4 +77,7 @@ if(BUILD_TESTING)
     target_include_directories(n3_profile_config_test PRIVATE src)
     target_link_libraries(n3_profile_config_test PRIVATE rex::runtime)
     add_test(NAME profile_config COMMAND n3_profile_config_test)
+    add_executable(n3_graphics_policy_test tests/graphics_policy_test.cpp)
+    target_include_directories(n3_graphics_policy_test PRIVATE src)
+    add_test(NAME graphics_policy COMMAND n3_graphics_policy_test)
 endif()

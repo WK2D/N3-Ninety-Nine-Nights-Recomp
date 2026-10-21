@@ -25,6 +25,8 @@ The first Windows alpha includes the unmodified ReXGlue runtime and Xenos GPU DL
 from the pinned SDK. Alpha 2 and development builds retain that runtime and rebuild the Xenos
 plugin with the live-resolution extension in `tools/gpu/`; `tools/prepare-gpu.py`
 applies the extension to the pinned source without modifying the installed SDK.
+Alpha 3 also builds a project presenter from the SDK's D3D12 presenter sources to
+provide host VSync, retaining the shared SDK callback types and provider/runtime.
 Its third-party components include SDL3, FFmpeg, libmspack,
 fmt, spdlog, simde, xxHash, toml++, utfcpp, Dear ImGui, CLI11, o1heap, and small
 vendored utility libraries. Their notices, including notices embedded in source

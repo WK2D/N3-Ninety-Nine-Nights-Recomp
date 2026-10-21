@@ -4,6 +4,7 @@
 #include "display_settings.h"
 #include "profile_config.h"
 #include "graphics_notification.h"
+#include "graphics_settings.h"
 #include <rex/runtime.h>
 #include <rex/ppc.h>
 #include <rex/cvar.h>
@@ -29,7 +30,6 @@ bool installed = false, pending = false;
 bool focus_pending = false;
 uint32_t layout_name = 0, graphics_owner = 0, graphics_root = 0;
 std::filesystem::path config_path;
-constexpr std::array<uint32_t, 3> rates{30, 40, 60};
 constexpr std::array<int, 6> filters{-1, 0, 2, 3, 4, 5};
 constexpr std::array<uint32_t, 4> display_heights{720, 1080, 1440, 2160};
 uint32_t Read32(uint8_t* base, uint32_t at) { return rex::memory::load_and_swap<uint32_t>(base + at); }
@@ -82,6 +82,7 @@ bool InstallGraphicsMenu(rex::Runtime& runtime, const std::filesystem::path& roo
     WriteFile(cache / "Menu" / "uititle.uitb", n3::graphics::ExtendTitleLayout(ReadFile(cache / "Menu" / "uititle.uitb")));
     WriteFile(cache / "Menu" / "uigraphics.uitb", n3::graphics::BuildGraphicsLayout(ReadFile(cache / "Menu" / "uioption.uitb")));
     constexpr auto extra =
+      "\r\n1950\t\"VSync\"\r\n1951\t\"Off\"\r\n1952\t\"On\""
       "\r\n1960\t\"720p\"\r\n1961\t\"1080p\"\r\n1962\t\"1440p\"\r\n1963\t\"4K\""
       "\r\n1965\t\"720p (1x)\"\r\n1966\t\"1440p (2x)\"\r\n1967\t\"4K (3x)\""
       "\r\n1975\t\"Display\"\r\n1976\t\"Rendering\""
@@ -175,6 +176,8 @@ extern "C" void sub_821A8030(PPCContext& ctx, uint8_t* base) {
   } catch (...) {}
   ConfigureSlider(ctx, base, display, 1960, 4, display_index);
   ConfigureSlider(ctx, base, render, 1965, 3, uint32_t(std::clamp(std::max(x, y), 1, 3) - 1));
+  const auto sync = Call(ctx, base, sub_821CD7C0, graphics_root, 0x03906005);
+  ConfigureSlider(ctx, base, sync, 1951, 2, rex::cvar::Query<bool>("n3_vsync") ? 1 : 0);
   REXLOG_INFO("Graphics page opened");
 }
 
@@ -211,20 +214,11 @@ extern "C" void sub_821A8B30(PPCContext& ctx, uint8_t* base) {
     } else if ((kind == 1100 && (code == 8 || code == 9 || code == 0)) || kind == 400) {
       const auto type = id & 0xFFFFF000u;
       const auto ordinal = id & 0xFFFu;
-      if ((type == 0x03901000 || type == 0x03906000) && ordinal >= 1 && ordinal <= 4) {
+      if ((type == 0x03901000 || type == 0x03906000) && ordinal >= 1 && ordinal <= 5) {
         const auto slider = Call(ctx, base, sub_821CD7C0, root, 0x03906000 + ordinal);
         if (kind == 1100) Call(ctx, base, sub_821DC710, slider, code == 8 ? 0 : 1);
         const auto index = Read32(base, slider + 192) + Read32(base, slider + 204);
-        if (ordinal == 1 && index < rates.size()) SetFrameRate(rates[index]);
-        if (ordinal == 2 && index < filters.size()) rex::cvar::SetFlagByName("anisotropic_override", std::to_string(filters[index]));
-        if (ordinal == 3 && index < display_heights.size()) SetDisplayHeight(display_heights[index]);
-        if (ordinal == 4 && index < 3) {
-          const auto scale = std::to_string(index + 1);
-          rex::cvar::SetFlagByName("draw_resolution_scale_x", scale);
-          rex::cvar::SetFlagByName("draw_resolution_scale_y", scale);
-          rex::cvar::SetFlagByName("resolution_scale", scale);
-          rex::cvar::SetFlagByName("n3_live_resolution_request", scale);
-        }
+        if (!ApplyGraphicsChoice(ordinal, index)) { NotifyGraphicsSaved(false); ctx.r3.u64 = 0; return; }
         Persist(); REXLOG_INFO("Graphics setting applied: row {} index {}", ordinal, index);
         ctx.r3.u64 = 0; return;
       }

@@ -15,7 +15,7 @@ is identified in [game-build.json](docs/game-build.json).
 
 ## Play the Windows alpha
 
-**[Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.2/N3-Recompiled-v0.1.0-alpha.2-windows-x64.zip)**
+**[Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.3/N3-Recompiled-v0.1.0-alpha.3-windows-x64.zip)**
 
 Extract the whole ZIP and run **n3.exe**. Select an ISO made from your own
 disc, or `default.xex` in your own extracted game folder with `data/` beside it.
@@ -32,7 +32,7 @@ folder when updating; replace the application folder with the new release.
 An existing extracted game folder is linked in place. The package contains
 no game assets or original executable. See the [release guide](docs/RELEASE-README.txt).
 
-[Release notes, checksums, and optional developer sources](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/tag/v0.1.0-alpha.2)
+[Release notes, checksums, and optional developer sources](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/tag/v0.1.0-alpha.3)
 are available separately. Only the Windows ZIP is needed to play.
 
 ## Run a development build
@@ -63,6 +63,9 @@ Changes apply immediately and are saved to the local profile.
 - **Anisotropic filtering:** Game default, Off, 2x, 4x, 8x, or 16x.
 - **Display resolution:** 720p, 1080p, 1440p, or 4K window/output size.
 - **Render resolution:** 720p (1x), 1440p (2x), or 4K (3x) internal rendering.
+- **VSync:** On or Off, applied live to Windows presentation.
+  On synchronizes presentation without blocking menu input; Off allows tearing
+  when supported. This is separate from the game's vblank clock.
 
 Filtering overrides apply to eligible mipmapped textures. The renderer retains
 the game's filtering for textures outside that policy. The original Options
@@ -72,9 +75,10 @@ the scale-dependent GPU caches at a completed frame boundary; a brief pause whil
 resources and shaders are prepared is possible. Unsupported changes retain the
 previous render scale. A short confirmation reports when settings are saved.
 
-Display size and internal rendering are independent. Display presets resize a
-normal window; maximized/fullscreen output follows the desktop. Windows display
-scaling can round the requested window size slightly. The renderer supports
+Display size and internal rendering are independent. The app restores
+maximized/fullscreen windows when a display preset is selected and apply exact
+physical client dimensions. A large window can extend beyond the desktop when
+its client size plus borders will not fit. The renderer supports
 integer scales, so 1080p is available as a display size, with 720p/1440p/4K render
 choices. Saved display settings apply on the next launch; explicit launcher
 `-Width`/`-Height` arguments override them for that launch.
@@ -96,7 +100,7 @@ pwsh -NoProfile -File tools/launch.ps1 -FrameRate Original
 timing is still under investigation; a requested limit does not guarantee that
 all scenes achieve it. Movie/audio clocks remain unchanged and prerecorded
 videos can retain their original rate. Use the Original override for timing
-comparisons against unmodified game pacing. These controls are included from v0.1.0-alpha.2 onward.
+comparisons against unmodified game pacing. The Graphics menu was introduced in alpha 2; VSync and the audit corrections are included from alpha 3.
 
 ## Build from a fresh checkout
 
@@ -136,10 +140,16 @@ pwsh -NoProfile -File tools/symbolize-fault.ps1
 ```
 
 The build runs callback floating-point, disc importer, game-path, crash-report,
-frame-rate, menu-layout, and profile persistence regression tests. The Xenos GPU
+frame-rate, menu-layout, profile persistence, and host presentation regression tests. The Xenos GPU
 plugin is rebuilt from the pinned SDK source with the local live-resolution
 extension in `tools/gpu/`. The first build downloads the corresponding SDK sources
 when necessary; `-Python` selects the Python executable for preparation.
+For an isolated developer profile, `--graphics_audit --graphics_trace
+--frame_pacing_trace` cycles controls without saving. After at least 50 seconds,
+`python tools/verify-graphics-audit.py path/to/the-log` checks actual window,
+render-source, sampler, and presentation evidence. Use a separate test profile;
+the probe deliberately changes live settings. Prerecorded videos retain their
+own frame rate, so gameplay pacing needs a separate check.
 Smoke tests stop
 their own child process at the deadline and record the result under `logs/`;
 survival alone does not establish correct rendering or gameplay. Smoke runs use

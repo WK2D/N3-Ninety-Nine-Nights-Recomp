@@ -99,9 +99,9 @@ std::vector<uint8_t> BuildGraphicsLayout(std::span<const uint8_t> b) {
   const auto slider_end = EndBrace(l.ts, slider);
   const std::vector<Token> slider_template(l.ts.begin() + slider, l.ts.begin() + slider_end + 1);
   const std::set<std::string> visible{
-    "IM_OptionBGM", "IM_OptionSE", "IM_OptionVoice", "IM_OptionCamY",
-    "BT_OptionBGM", "BT_OptionSE", "BT_OptionVoice", "BT_OptionCamY",
-    "SD_OptionBGM", "SD_OptionSE", "SD_OptionVoice", "SD_OptionCamY",
+    "IM_OptionBGM", "IM_OptionSE", "IM_OptionVoice", "IM_OptionCamY", "IM_OptionCamX",
+    "BT_OptionBGM", "BT_OptionSE", "BT_OptionVoice", "BT_OptionCamY", "BT_OptionCamX",
+    "SD_OptionBGM", "SD_OptionSE", "SD_OptionVoice", "SD_OptionCamY", "SD_OptionCamX",
     "IM_OptionVol_center", "IM_OptionVol_right", "TT_OptionVol", "IM_OptionCam_center", "IM_OptionCam_right", "TT_OptionCam",
     "IM_OptionVib_center", "IM_OptionVib_right", "TT_OptionVib",
     "IM_OptionContrast_center", "IM_OptionContrast_right", "TT_OptionContrast",
@@ -114,12 +114,12 @@ std::vector<uint8_t> BuildGraphicsLayout(std::span<const uint8_t> b) {
     const auto name = l.ts[i + 2].text;
     const auto end = EndBrace(l.ts, i);
     std::vector<Token> block(l.ts.begin() + i, l.ts.begin() + end + 1);
-    if (name == "SD_OptionBGM" || name == "SD_OptionSE" || name == "SD_OptionVoice" || name == "SD_OptionCamY") {
-      const uint32_t ordinal = name == "SD_OptionBGM" ? 1 : name == "SD_OptionSE" ? 2 : name == "SD_OptionVoice" ? 3 : 4;
+    if (name == "SD_OptionBGM" || name == "SD_OptionSE" || name == "SD_OptionVoice" || name == "SD_OptionCamY" || name == "SD_OptionCamX") {
+      const uint32_t ordinal = name == "SD_OptionBGM" ? 1 : name == "SD_OptionSE" ? 2 : name == "SD_OptionVoice" ? 3 : name == "SD_OptionCamY" ? 4 : 5;
       block = slider_template; block[2] = String(4, name);
       Set(block, "CLASSID", 0x03906000 + ordinal);
       for (size_t j = 0; j + 4 < block.size(); ++j)
-        if (block[j].text == "RANGE") block[j + 4] = Number(ordinal == 2 ? 5 : ordinal == 3 ? 3 : 2);
+        if (block[j].text == "RANGE") block[j + 4] = Number(ordinal == 2 ? 5 : ordinal == 3 ? 3 : ordinal == 5 ? 1 : 2);
     }
     if (!visible.contains(name)) Set(block, "ATTRIBUTE", 16);
     if (name == "BT_OptionBGM" || name == "TT_OptionVol") Set(block, "TEXTID", 1997);
@@ -127,6 +127,7 @@ std::vector<uint8_t> BuildGraphicsLayout(std::span<const uint8_t> b) {
     if (name == "TT_OptionCam") Set(block, "TEXTID", 1989);
     if (name == "BT_OptionVoice") Set(block, "TEXTID", 1979);
     if (name == "BT_OptionCamY") Set(block, "TEXTID", 1978);
+    if (name == "BT_OptionCamX") Set(block, "TEXTID", 1950);
     if (name == "TT_OptionVib") Set(block, "TEXTID", 1975);
     if (name == "TT_OptionContrast") Set(block, "TEXTID", 1976);
     if (name == "TT_OptionHelp") Set(block, "TEXTID", 1977);
@@ -141,19 +142,21 @@ std::vector<uint8_t> BuildGraphicsLayout(std::span<const uint8_t> b) {
     result.insert(result.end(), block.begin(), block.end()); i = end + 1;
   }
   l.ts = std::move(result);
-  // Four aligned sections, leaving the footer unobstructed.
+  // Four sections; rendering contains both internal resolution and host VSync.
   const std::map<uint32_t, uint32_t> ys{
     {0x03905001,122},{0x03901001,126},{0x03906001,126},
-    {0x03905002,242},{0x03901002,246},{0x03906002,246},
-    {0x03905003,362},{0x03901003,366},{0x03906003,366},
-    {0x03905004,482},{0x03901004,486},{0x03906004,486},
-    {0x03805003,230},{0x03805004,230},{0x03804002,242},
-    {0x03805005,350},{0x03805006,350},{0x03804003,362}};
+    {0x03905002,232},{0x03901002,236},{0x03906002,236},
+    {0x03905003,342},{0x03901003,346},{0x03906003,346},
+    {0x03905004,452},{0x03901004,456},{0x03906004,456},
+    {0x03905005,526},{0x03901005,530},{0x03906005,530},
+    {0x03805003,220},{0x03805004,220},{0x03804002,232},
+    {0x03805005,330},{0x03805006,330},{0x03804003,342},
+    {0x03805009,440},{0x0380500A,440},{0x03804005,452}};
   for (size_t i = 0; i + 12 < l.ts.size(); ++i)
     if (l.ts[i].text == "ADDITEM" && l.ts[i + 4].type == 5) {
       const auto found = ys.find(l.ts[i + 4].number);
       if (found != ys.end()) l.ts[i + 11] = Number(found->second);
-      if (l.ts[i + 4].number >= 0x03906001 && l.ts[i + 4].number <= 0x03906004)
+      if (l.ts[i + 4].number >= 0x03906001 && l.ts[i + 4].number <= 0x03906005)
         l.ts[i + 9] = Number(940);
       if (l.ts[i + 4].number == 0x00603001) {
         l.ts[i + 9] = Number(500); l.ts[i + 11] = Number(32);

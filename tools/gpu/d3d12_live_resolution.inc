@@ -2,6 +2,14 @@
 // Called on the GPU worker after the completed swap submission. Graphics is a
 // main-menu page: its next frame redraws the discarded render-target contents.
 void D3D12CommandProcessor::ApplyN3DrawResolutionScale() {
+  if (rex::cvar::Query<bool>("graphics_audit")) {
+    static int previous_filter = -99;
+    const auto filter = rex::cvar::Query<int32_t>("anisotropic_override");
+    if (filter != previous_filter) {
+      previous_filter = filter;
+      if (!texture_cache_->AuditSamplerPolicy()) REXGPU_ERROR("Graphics sampler probe failed");
+    }
+  }
   const uint32_t previous = texture_cache_->draw_resolution_scale_x();
   REXCVAR_SET(n3_render_scale_active, previous);
   const uint32_t requested = REXCVAR_GET(n3_live_resolution_request);
