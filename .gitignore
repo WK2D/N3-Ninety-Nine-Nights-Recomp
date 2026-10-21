@@ -1,0 +1,26 @@
+# Original game material and generated translations stay local.
+*.iso
+*.xex
+*.xexp
+*.pdb
+/private/
+/.tools/
+/assets/
+/generated/*
+!/generated/rexglue.cmake
+/out/
+/build/
+/logs/
+/CMakeUserPresets.json
+*.log
+/metadata/
+
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.dmp
+*.etl
+*.trace

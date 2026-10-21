@@ -1,0 +1,31 @@
+{
+  "sdk": {
+    "version": "0.10.0.24-dev.gbd833a2",
+    "commit": "bd833a2ab69d305f99ddf57418fc38ffec8af93d",
+    "url": "https://github.com/rexglue/rexglue-sdk/releases/download/nightly-20261002-bd833a2a/rexglue-sdk-0.10.0.24-dev.gbd833a2-win-amd64.zip",
+    "sha256": "1e19d7ec9be0d9d7e1a0088a34a33b068d4dea520181e81318528ef3b37627e7"
+  },
+  "llvm": {
+    "version": "20.1.8",
+    "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.8/LLVM-20.1.8-win64.exe",
+    "sha256": "3197846a2b19063687dd56e93e34cd941e3548d907f23a6131571321bdf9fe7b"
+  },
+  "cmake": {
+    "version": "3.31.8",
+    "url": "https://github.com/Kitware/CMake/releases/download/v3.31.8/cmake-3.31.8-windows-x86_64.zip",
+    "sha256": "81aa9964dbabd71fe02e7ec50472fd3ad56138c49944515ece9001efbff8d719"
+  },
+  "ninja": {
+    "version": "1.13.1",
+    "url": "https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-win.zip",
+    "sha256": "26a40fa8595694dec2fad4911e62d29e10525d2133c9a4230b66397774ae25bf"
+  },
+  "msvc_downloader": {
+    "revision": "49b58850aa5e5c1e65f090d4651ee76607883e11",
+    "url": "https://gist.githubusercontent.com/mmozeiko/7f3162ec2988e81e56d5c4e22cde9977/raw/49b58850aa5e5c1e65f090d4651ee76607883e11/portable-msvc.py",
+    "sha256": "1791cccca594ff083ce8d3e0a139e6156d2c312e24332a909e608010f0230a51",
+    "vs": "2022",
+    "msvc_version": "14.44",
+    "sdk_version": "26100"
+  }
+}

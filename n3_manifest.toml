@@ -1,0 +1,21 @@
+# ReXGlue v0.10.0.24-dev.gbd833a2 configuration.
+
+[project]
+name = "n3"
+sdk_version = "0.10.0"
+game_root = "private/game"
+
+[entrypoint]
+file_path = "private/game/default.xex"
+out_directory_path = "generated/default"
+includes = []
+
+# A direct tail branch at 0x8254698C targets this entry; the stock analyser
+# misses it. Seed the entry and let control-flow discovery infer its extent.
+[entrypoint.functions]
+0x8253F950 = {}
+# First boot reaches this indirect call during startup; it was absent from
+# the analyser's discovered entry points. Infer its body rather than stub it.
+0x82588FF8 = {}
+# Observed indirect target while initializing the audio runtime on first boot.
+0x8253ED08 = {}
