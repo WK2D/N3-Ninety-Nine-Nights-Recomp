@@ -187,6 +187,10 @@ re-entry correction and profile persistence fixes. Both build configurations pas
 seven native suites, and the supported private menu transformations pass. A
 separate Release run loaded a saved 40 FPS profile and switched from 3x to 1x
 rendering without restarting, continuing until its own harness deadline.
+The extracted alpha 2 Windows ZIP passes all packaged-file hash checks, reuses a
+remembered local game folder, installs Graphics, and applies live 2x rendering.
+It continues presenting until the isolated harness stops its child at 24 seconds;
+this packaged startup check does not extend gameplay compatibility claims.
 
 ## Frame-rate validation limits
 

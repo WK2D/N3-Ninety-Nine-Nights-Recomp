@@ -37,6 +37,8 @@ The opening mission, following cutscene, saving and loading progress have been
 exercised on the opening route. Menu checks confirm live settings, resolution
 changes, re-entry, and the saved confirmation. Release and RelWithDebInfo pass
 seven native suites. Isolated renderer tests apply live 1x-to-3x and 3x-to-1x changes.
+The extracted Windows ZIP passes its file-hash checks and an isolated startup
+check with remembered game data and live 1440p rendering.
 
 **40/60 FPS remain experimental.** Animations can run faster than intended;
 animation/combat timing is still being investigated. Full-game coverage, later
