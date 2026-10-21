@@ -1,3 +1,8 @@
+## [Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.1/N3-Recompiled-v0.1.0-alpha.1-windows-x64.zip)
+
+**This is the download needed to play.** Extract the whole ZIP and run `n3.exe`.
+Supply the game files from your own disc as described below.
+
 First **Windows x64 alpha** of N3 Recompiled.
 
 The opening mission has been completed, the following cutscene played, and a save
@@ -39,6 +44,11 @@ This is an alpha, not a full-game compatibility claim. Presentation glitches may
 remain. The first-launch picker/progress UI still needs a completed visual
 interaction check. A command-line alternative is documented in `README.txt`.
 
-`SHA256SUMS.txt` covers the Windows ZIP and corresponding-source ZIP. The separate
-ReXGlue source archive is for SDK/library source availability and rebuilding; it
-is **not needed to play**. Third-party licenses and notices are included.
+### Developer sources — optional
+
+[Developer sources — optional](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.1/ReXGlue-bd833a2-corresponding-source.zip)
+contains the ReXGlue SDK and supporting library sources for licensing and
+rebuilding. It is **not needed to play**. Third-party licenses and notices are included.
+
+[Checksums (SHA-256)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.1/SHA256SUMS.txt)
+cover both ZIP files.

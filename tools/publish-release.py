@@ -13,6 +13,16 @@ TAG = "v0.1.0-alpha.1"
 API = "https://api.github.com/repos/" + REPO
 
 
+def asset_label(name):
+    if name.endswith("-windows-x64.zip"):
+        return "Download for Windows (x64)"
+    if name.endswith("-corresponding-source.zip"):
+        return "Developer sources — optional"
+    if name == "SHA256SUMS.txt":
+        return "Checksums (SHA-256)"
+    return name
+
+
 def main():
     if subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT).strip():
         raise RuntimeError("Commit source changes before publishing")
@@ -71,7 +81,7 @@ def main():
             if uploaded[path.name].get("digest") != expected:
                 raise RuntimeError("A draft asset differs; inspect it before resuming")
             continue
-        url = release["upload_url"].split("{")[0] + "?name=" + urllib.parse.quote(path.name)
+        url = release["upload_url"].split("{")[0] + "?" + urllib.parse.urlencode({"name": path.name, "label": asset_label(path.name)})
         asset = request("POST", url, path.read_bytes(), "application/octet-stream")
         if asset.get("digest") != expected:
             raise RuntimeError("GitHub asset digest mismatch; draft was not published")

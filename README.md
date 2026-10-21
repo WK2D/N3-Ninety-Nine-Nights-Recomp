@@ -15,8 +15,9 @@ is identified in [game-build.json](docs/game-build.json).
 
 ## Play the Windows alpha
 
-Download the Windows x64 ZIP from [Releases](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases),
-extract the whole archive, and run **n3.exe**. Select an ISO made from your own
+**[Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.1/N3-Recompiled-v0.1.0-alpha.1-windows-x64.zip)**
+
+Extract the whole ZIP and run **n3.exe**. Select an ISO made from your own
 disc, or `default.xex` in your own extracted game folder with `data/` beside it.
 Setup checks the executable's SHA-256 and remembers the local folder. Importing
 an ISO needs about 5.8 GB of free space; the original image stays unchanged.
@@ -30,6 +31,9 @@ caches, and logs default to `%LOCALAPPDATA%\N3Recompiled`. Keep this profile
 folder when updating; replace the application folder with the new release.
 An existing extracted game folder is linked in place. The package contains
 no game assets or original executable. See the [release guide](docs/RELEASE-README.txt).
+
+[Release notes, checksums, and optional developer sources](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/tag/v0.1.0-alpha.1)
+are available separately. Only the Windows ZIP is needed to play.
 
 ## Run a development build
 
