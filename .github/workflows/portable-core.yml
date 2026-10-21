@@ -1,0 +1,37 @@
+name: Portable native components
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Verify Apple Silicon runner
+        if: runner.os == 'macOS'
+        run: test "$(uname -m)" = arm64
+      - name: Configure without SDK or game data
+        run: cmake -S . -B out/portable-core -DN3_BUILD_GAME=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build out/portable-core --config Release --parallel 3
+      - name: Test synthetic fixtures
+        run: ctest --test-dir out/portable-core -C Release --output-on-failure
+      - name: Check native importer entry point
+        shell: python
+        run: |
+          import pathlib, subprocess
+          folder = pathlib.Path("out/portable-core")
+          binary = folder / "Release/n3_import.exe" if (folder / "Release/n3_import.exe").exists() else folder / "n3_import"
+          result = subprocess.run([str(binary.resolve())], capture_output=True, text=True)
+          assert result.returncode == 2 and "Usage: n3_import" in result.stderr

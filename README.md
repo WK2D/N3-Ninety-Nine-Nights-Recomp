@@ -179,6 +179,10 @@ notices, scans binaries for local identifiers, and writes ZIP checksums under
 
 ## References
 
+The next platform work targets Vulkan and Apple Silicon. Portable native
+components can already build without game data or the Xbox runtime; the full
+game remains Windows-only. See the [native code and porting roadmap](docs/PORTING.md).
+
 [LostOdysseyRecomp](https://github.com/freefrank/LostOdysseyRecomp) and
 [UnleashedRecomp](https://github.com/hedge-dev/UnleashedRecomp) are the reference
 projects for development practices and the longer-term port experience.

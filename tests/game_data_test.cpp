@@ -1,10 +1,12 @@
 #include "game_data.h"
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include "import_paths.h"
+#include <algorithm>
 #include <array>
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <random>
 
 namespace fs = std::filesystem;
 void Require(bool value, const char* message) { if (!value) throw std::runtime_error(message); }
@@ -14,14 +16,39 @@ template<class Function> void Reject(Function fn) {
   Require(rejected, "Malformed image was accepted");
 }
 
+#ifdef _WIN32
 int wmain(int argc, wchar_t** argv) {
-  const auto base = fs::temp_directory_path();
-  const auto root = base / ("n3-import-test-" + std::to_string(GetCurrentProcessId()) + "-" + std::to_string(GetTickCount64()));
+#else
+int main(int argc, char** argv) {
+#endif
+  const auto base = fs::canonical(fs::temp_directory_path());
+  const auto root = base / ("n3-import-test-" + std::to_string(std::random_device{}()) + "-" +
+      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   if (!fs::create_directory(root)) return 1;
   int result = 0;
   try {
     const std::array<uint8_t, 3> abc{'a', 'b', 'c'};
     Require(n3::data::Sha256(abc) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "SHA-256 vector mismatch");
+    Require(n3::data::Sha256({}) == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "Empty SHA-256 mismatch");
+    const std::vector<uint8_t> million(1000000, 'a');
+    Require(n3::data::Sha256(million) == "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0", "Multi-block SHA-256 mismatch");
+    n3::data::CheckImportPath(root / "missing" / "output");
+    fs::create_directory(root / "real");
+    std::error_code link_error;
+    fs::create_directory_symlink(root / "real", root / "linked", link_error);
+    if (!link_error) {
+      Reject([&] { n3::data::CheckImportPath(root / "linked"); });
+      Reject([&] { n3::data::CheckImportPath(root / "linked" / "new-output"); });
+      fs::create_directory_symlink(root / "absent", root / "dangling");
+      Reject([&] { n3::data::CheckImportPath(root / "dangling" / "new-output"); });
+      std::cout << "Link and ancestor rejection passed\n";
+    } else {
+#ifndef _WIN32
+      throw fs::filesystem_error("Cannot create link fixture", root, link_error);
+#else
+      std::cout << "Link fixtures skipped: Windows symlink privilege unavailable\n";
+#endif
+    }
     std::vector<uint8_t> image(40 * 2048);
     const std::string magic = "MICROSOFT*XBOX*MEDIA";
     std::copy(magic.begin(), magic.end(), image.begin() + 32 * 2048);

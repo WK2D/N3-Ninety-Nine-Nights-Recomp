@@ -2,12 +2,16 @@
 #include <cstdio>
 #include <iostream>
 
+#ifdef _WIN32
 int wmain(int argc, wchar_t** argv) {
+#else
+int main(int argc, char** argv) {
+#endif
   try {
-    if (argc == 3 && std::wstring_view(argv[1]) == L"inspect") {
+    if (argc == 3 && std::filesystem::path(argv[1]) == "inspect") {
       const std::filesystem::path source(argv[2]);
       if (std::filesystem::is_directory(source)) n3::data::VerifyGameFolder(source);
-      else if (source.extension() == L".xex") n3::data::VerifyGameFolder(source.parent_path());
+      else if (source.extension() == ".xex") n3::data::VerifyGameFolder(source.parent_path());
       else {
         n3::data::DiscImage disc(source);
         disc.VerifyExecutable();
@@ -16,7 +20,7 @@ int wmain(int argc, wchar_t** argv) {
       std::puts("Matching N3 executable verified");
       return 0;
     }
-    if (argc == 4 && std::wstring_view(argv[1]) == L"import") {
+    if (argc == 4 && std::filesystem::path(argv[1]) == "import") {
       n3::data::ImportDisc(argv[2], argv[3]);
       std::puts("Disc import and executable verification complete");
       return 0;

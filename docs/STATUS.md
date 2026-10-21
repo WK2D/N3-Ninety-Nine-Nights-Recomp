@@ -254,6 +254,17 @@ separate image file. The development desktop shortcut has been refreshed.
 Packaged icon resources load at all seven sizes; packaged file hashes and binary
 privacy checks pass. Alpha 3 remains available unchanged.
 
+## Portable native components
+
+The disc parser/importer and menu asset transformations now build independently
+with `N3_BUILD_GAME=OFF`, without ReXGlue or game data. Hashing and destination
+checks use platform adapters; macOS uses CommonCrypto and Linux uses OpenSSL.
+The Windows full build still passes eight suites, including added empty and
+multi-block hash vectors and destination-link checks where privileges allow.
+A workflow exercises the portable subset on Windows, Linux and Apple Silicon.
+These components do not establish a Mac game build. See [porting roadmap](PORTING.md)
+for the Vulkan/runtime work and native gameplay boundaries.
+
 ## Next validation work
 
 1. Measure original-mode gameplay in the same scene and correct the accelerated

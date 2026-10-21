@@ -1,8 +1,5 @@
 #include "game_data.h"
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <bcrypt.h>
+#include "import_paths.h"
 
 #include <algorithm>
 #include <array>
@@ -36,17 +33,6 @@ void CheckName(const std::string& name) {
       (base.size() == 4 && (base.starts_with("com") || base.starts_with("lpt")) &&
        base[3] >= '1' && base[3] <= '9')) throw std::runtime_error("Reserved disc entry name");
 }
-void CheckNoLinks(const fs::path& path) {
-  for (auto p = fs::absolute(path); !p.empty();) {
-    const auto attributes = GetFileAttributesW(p.c_str());
-    if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
-      throw std::runtime_error("Import destination must not contain symbolic links or junctions");
-    }
-    const auto parent = p.parent_path();
-    if (p == parent) break;
-    p = parent;
-  }
-}
 std::vector<uint8_t> ReadFile(const fs::path& path) {
   if (!fs::is_regular_file(path) || fs::file_size(path) != kExecutableSize) {
     throw std::runtime_error("A matching default.xex is required (USA/Europe disc, version 0.0.0.3)");
@@ -57,25 +43,6 @@ std::vector<uint8_t> ReadFile(const fs::path& path) {
   return bytes;
 }
 }  // namespace
-
-std::string Sha256(std::span<const uint8_t> bytes) {
-  BCRYPT_ALG_HANDLE algorithm = nullptr;
-  BCRYPT_HASH_HANDLE hash = nullptr;
-  if (BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) < 0) {
-    throw std::runtime_error("Cannot initialize SHA-256");
-  }
-  std::array<uint8_t, 32> digest{};
-  const auto created = BCryptCreateHash(algorithm, &hash, nullptr, 0, nullptr, 0, 0);
-  const auto hashed = created < 0 ? created : BCryptHashData(hash, const_cast<PUCHAR>(bytes.data()), static_cast<ULONG>(bytes.size()), 0);
-  const auto finished = hashed < 0 ? hashed : BCryptFinishHash(hash, digest.data(), digest.size(), 0);
-  if (hash) BCryptDestroyHash(hash);
-  BCryptCloseAlgorithmProvider(algorithm, 0);
-  if (finished < 0) throw std::runtime_error("SHA-256 calculation failed");
-  constexpr char hex[] = "0123456789abcdef";
-  std::string result;
-  for (auto b : digest) { result += hex[b >> 4]; result += hex[b & 15]; }
-  return result;
-}
 
 DiscImage::DiscImage(fs::path source) : source_(std::move(source)), size_(fs::file_size(source_)) {
   bool found = false;
@@ -167,7 +134,7 @@ void ImportDisc(const fs::path& source, const fs::path& output,
   uint64_t total = 0, done = 0;
   for (const auto& file : files) total += file.size;
   const auto root = fs::absolute(output).lexically_normal();
-  CheckNoLinks(root);
+  CheckImportPath(root);
   if (fs::exists(root)) throw std::runtime_error("Import destination already exists");
   fs::create_directories(root.parent_path());
   if (!fs::create_directory(root)) throw std::runtime_error("Cannot create import destination");
@@ -179,7 +146,7 @@ void ImportDisc(const fs::path& source, const fs::path& output,
       if (progress && !progress(done, total)) throw std::runtime_error("Disc import cancelled");
       const auto target = root / file.relative_path;
       fs::create_directories(target.parent_path());
-      CheckNoLinks(target);
+      CheckImportPath(target);
       if (fs::exists(target)) throw std::runtime_error("Import file already exists");
       std::ofstream out(target, std::ios::binary);
       in.seekg(static_cast<std::streamoff>(file.offset));
@@ -198,7 +165,7 @@ void ImportDisc(const fs::path& source, const fs::path& output,
     // This tree was created above after refusing every pre-existing destination.
     // Recheck its resolved identity and reparse status before recursive cleanup.
     if (fs::exists(root) && fs::weakly_canonical(root) == root) {
-      CheckNoLinks(root);
+      CheckImportPath(root);
       fs::remove_all(root);
     }
     throw;
