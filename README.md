@@ -1,7 +1,5 @@
 # N3 Recompiled
 
-[GitHub repository](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp)
-
 A native Windows recompilation project for **N3: Ninety-Nine Nights**, built from
 the Xbox 360 executable with [ReXGlue](https://github.com/rexglue/rexglue-sdk).
 PowerPC game code is translated to C++ ahead of time. ReXGlue supplies the Xbox
