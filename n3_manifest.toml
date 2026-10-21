@@ -19,3 +19,6 @@ includes = []
 0x82588FF8 = {}
 # Observed indirect target while initializing the audio runtime on first boot.
 0x8253ED08 = {}
+# Runtime dispatch reaches this previously undiscovered entry during the
+# opening cutscene. Keep the original implementation through code generation.
+0x8215B150 = {}

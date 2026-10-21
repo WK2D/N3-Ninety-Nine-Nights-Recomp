@@ -5,10 +5,11 @@ the Xbox 360 executable with [ReXGlue](https://github.com/rexglue/rexglue-sdk).
 PowerPC game code is translated to C++ ahead of time. ReXGlue supplies the Xbox
 runtime and its Xenos GPU plugin uses Direct3D 12.
 
-**Current milestone:** builds successfully, initializes graphics/audio/input, and
-reaches the intro/title screen. The initial windowed presentation was confirmed
-visually on 21 October 2026. Gameplay, saves, and full-game completion are not yet
-validated. See [development status](docs/STATUS.md).
+**Current milestone:** the windowed build reaches the main menu, character
+selection, and the opening cutscene. Cutscene playback remains unstable; a missing
+indirect function entry found at the first crash has been added and rebuilt, with
+scene replay validation pending. Gameplay, saves, and full-game completion are
+not yet validated. See [development status](docs/STATUS.md).
 
 No game assets, original executable, generated game translations, or downloaded
 toolchain binaries are tracked. Supply your own game data. The supported executable
