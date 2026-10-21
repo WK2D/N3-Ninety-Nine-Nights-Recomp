@@ -286,6 +286,24 @@ passes the existing build-machine identifier scan.
 The active development source and launcher use Direct3D 12. The Vulkan prototype
 is parked locally after a system-freeze report; no Vulkan change is released.
 
+## Native shape-bounds batch
+
+Five geometry helpers now use portable typed sphere, capsule and box bounds
+operations with a separate guest-memory adapter. The original routines remain
+available for nonfinite/subnormal input and overlapping source/output ranges.
+The native library uses strict FP arithmetic with contraction disabled, retaining
+the original signed-zero, negative-dimension and directed-rounding behavior.
+The equivalence suite compares 12,800 synthetic cases against the translated
+entries and checks whole-buffer writes, FP controls, calling convention and
+indirect registration. The portable geometry suite needs no runtime or game data.
+See [native interfaces and routine map](NATIVE-CODE.md). These checks do not
+establish a performance gain or full collision/mission coverage.
+
+Both Windows configurations pass eleven native suites. An isolated 24-second
+Release startup presents through Direct3D 12 without logged errors until its own
+harness deadline; this does not exercise every shape during gameplay. Executable
+and GPU plugin privacy scans pass.
+
 ## Next validation work
 
 1. Measure original-mode gameplay in the same scene and correct the accelerated

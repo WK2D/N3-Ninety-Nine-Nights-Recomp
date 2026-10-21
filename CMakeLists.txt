@@ -18,8 +18,15 @@ endif()
 option(N3_BUILD_GAME "Build the Windows game and renderer" ON)
 include(CTest)
 
-add_library(n3_native STATIC src/native/frame_clock.cpp)
+add_library(n3_native STATIC src/native/frame_clock.cpp src/native/shape_bounds.cpp)
 target_include_directories(n3_native PUBLIC src)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(n3_native PRIVATE -ffp-model=strict -ffp-contract=off)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(n3_native PRIVATE -frounding-math -ffp-contract=off)
+elseif(MSVC)
+    target_compile_options(n3_native PRIVATE /fp:strict)
+endif()
 
 add_library(n3_game_data STATIC src/game_data.cpp src/file_hash.cpp src/import_paths.cpp)
 target_include_directories(n3_game_data PUBLIC src)
@@ -38,6 +45,9 @@ if(BUILD_TESTING)
     add_executable(n3_native_clock_test tests/native_clock_test.cpp)
     target_link_libraries(n3_native_clock_test PRIVATE n3_native)
     add_test(NAME native_frame_clock COMMAND n3_native_clock_test)
+    add_executable(n3_native_bounds_test tests/native_bounds_test.cpp)
+    target_link_libraries(n3_native_bounds_test PRIVATE n3_native)
+    add_test(NAME native_shape_bounds COMMAND n3_native_bounds_test)
     add_executable(n3_game_data_test tests/game_data_test.cpp)
     target_link_libraries(n3_game_data_test PRIVATE n3_game_data)
     add_test(NAME game_data_import COMMAND n3_game_data_test)
@@ -60,6 +70,7 @@ set(N3_SOURCES
     src/app_icon.cpp
     src/crash_diagnostics.cpp
     src/runtime_fixes.cpp
+    src/shape_bounds_hooks.cpp
     src/game_setup.cpp
     src/frame_rate.cpp
     src/display_settings.cpp
@@ -99,6 +110,11 @@ if(BUILD_TESTING)
     target_link_libraries(n3_frame_rate_test PRIVATE n3_native n3_recomp rex::runtime)
     rexglue_apply_target_settings(n3_frame_rate_test)
     add_test(NAME frame_rate_policy COMMAND n3_frame_rate_test)
+    add_executable(n3_shape_bounds_test tests/shape_bounds_test.cpp src/shape_bounds_hooks.cpp)
+    target_include_directories(n3_shape_bounds_test PRIVATE src)
+    target_link_libraries(n3_shape_bounds_test PRIVATE n3_native n3_recomp rex::runtime)
+    rexglue_apply_target_settings(n3_shape_bounds_test)
+    add_test(NAME shape_bounds_equivalence COMMAND n3_shape_bounds_test)
     add_executable(n3_profile_config_test tests/profile_config_test.cpp src/profile_config.cpp)
     target_include_directories(n3_profile_config_test PRIVATE src)
     target_link_libraries(n3_profile_config_test PRIVATE rex::runtime)

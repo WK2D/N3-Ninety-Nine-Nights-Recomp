@@ -37,6 +37,38 @@ tests and future engine callers do not depend on a host clock or global state.
 All other bytes remain unchanged. Callers keep their stack and nonvolatile
 registers; the initializer returns the original success value in `r3`.
 
+## Shape bounds
+
+Five additional engine entries now use `src/native/shape_bounds.h` and `.cpp`
+through the guest adapter in `src/shape_bounds_hooks.cpp`:
+
+| Entry | Native operation | Input fields | Output |
+| --- | --- | --- | --- |
+| `0x8235FB80` | Sphere bounds around a center | Center at `+68`, radius at `+288` | Six min/max float components |
+| `0x8235FBE8` | Sphere bounds around the origin | Radius at `+288` | Six min/max float components |
+| `0x82366970` | Local capsule bounds along Y | Radius at `+288`, half-height at `+292` | Six min/max float components |
+| `0x82360478` | Local box bounds | Three half-extents at `+292` | Six min/max float components |
+| `0x82366918` | Capsule's enclosing sphere | Center at `+68`, radius at `+288`, half-height at `+292` | Center and combined radius |
+
+These names describe the verified arithmetic and layout; surrounding game class
+names and all users of these bounds have not been reconstructed. Units remain
+game units. Native operations accept explicit values and own no guest memory.
+The hooks read/write big-endian fields and preserve the original return register,
+stack, nonvolatile state, rounding mode and scalar flush-mode transition.
+
+Arithmetic keeps the original double-intermediate/float32-rounding sequence.
+Floating-point contraction is disabled, and strict/dynamic rounding is enabled
+for the native library. The capsule's lower Y extent deliberately remains
+`-half_height - radius`, since rewriting it as `-(half_height + radius)` changes
+directed-rounding and signed-zero cases. Negative dimensions are not clamped.
+
+NaNs, infinities and subnormal source values retain the translated implementation.
+Outputs overlapping the first 304 bytes of the source also use the original,
+preserving its ordered reads and writes. The conservative adapter does not try
+to broaden these cases for a larger native-coverage count. Unmasked host FP
+exceptions also use the original, retaining its partial-write order if a trap
+occurs.
+
 ## Verification
 
 `native_frame_clock` runs in the portable component build on Windows, Linux and
@@ -51,7 +83,17 @@ of the same game clock. Cases include a frequency wider than the import's return
 type. The test also checks calling convention, indirect hook registration, live
 switches, suspended clocks, unrecognized rates, and global-clock preservation.
 
-This does not fix accelerated animation at higher FPS. Animation, combat and
+`native_shape_bounds` checks geometric outputs, signed zeros, negative dimensions,
+and exceptional-value classification without ReXGlue or game data.
+`shape_bounds_equivalence` executes 12,800 comparisons with the five actual
+translated entries across four rounding modes and both starting flush modes.
+It compares the entire fixture buffer, covering finite and arbitrary float bits,
+overflow, subnormals, infinities, NaN payloads, unaligned output and alias fallback.
+It also checks guest calling convention, FP controls and indirect registration.
+These are synthetic bounds checks, not full collision/mission validation or a
+performance measurement.
+
+These replacements do not fix accelerated animation at higher FPS. Animation, combat and
 scripted-event update paths still require matched-scene tracing and comparisons
 before replacing or retiming them. Keep those changes separate from extraction
 of an already-understood clock primitive.
