@@ -1,4 +1,4 @@
-N3 Recompiled - v0.1.0-alpha.3 (Windows x64)
+N3 Recompiled - v0.1.0-alpha.4 (Windows x64)
 
 GET STARTED
 1. Extract the entire Windows x64 ZIP to a writable folder.
@@ -11,6 +11,12 @@ GET STARTED
 No original executable, game assets, saves, or disc image are provided.
 The program reads your selected files locally; there is no upload step.
 No Node.js, Python, or development tools are needed to run this package.
+
+DESKTOP ICON
+The emerald N3 icon is embedded in n3.exe and used by the application window.
+To make a desktop shortcut, right-click n3.exe, choose Show more options on
+Windows 11, then Send to > Desktop (create shortcut). The shortcut inherits the
+embedded icon. Keep the extracted application folder in its chosen location.
 
 REQUIREMENTS
 - Windows 10/11 x64 and a Direct3D 12 capable GPU/driver.

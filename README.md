@@ -17,7 +17,7 @@ is identified in [game-build.json](docs/game-build.json).
 
 ## Play the Windows alpha
 
-**[Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.3/N3-Recompiled-v0.1.0-alpha.3-windows-x64.zip)**
+**[Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.4/N3-Recompiled-v0.1.0-alpha.4-windows-x64.zip)**
 
 Extract the whole ZIP and run **n3.exe**. Select an ISO made from your own
 disc, or `default.xex` in your own extracted game folder with `data/` beside it.
@@ -34,8 +34,13 @@ folder when updating; replace the application folder with the new release.
 An existing extracted game folder is linked in place. The package contains
 no game assets or original executable. See the [release guide](docs/RELEASE-README.txt).
 
-[Release notes, checksums, and optional developer sources](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/tag/v0.1.0-alpha.3)
+[Release notes, checksums, and optional developer sources](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/tag/v0.1.0-alpha.4)
 are available separately. Only the Windows ZIP is needed to play.
+
+The emerald N3 icon is embedded in `n3.exe` and appears on the application window
+and Windows shortcuts made from it. To add a desktop shortcut, right-click
+`n3.exe`, choose **Show more options** on Windows 11, then **Send to → Desktop
+(create shortcut)**. Keep the extracted application folder in its chosen location.
 
 ## Run a development build
 

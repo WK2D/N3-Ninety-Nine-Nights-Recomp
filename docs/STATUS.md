@@ -248,8 +248,11 @@ The application embeds an emerald-and-silver N3 icon with 16, 24, 32, 48, 64,
 128 and 256 pixel variants. The window applies the embedded resource, and the
 development shortcut uses the matching ICO. The full-resolution transparent
 PNG contains pixel data only, without image metadata. Both build configurations
-pass the eight native suites. This branding change follows alpha 3 and does not
-replace its published release assets.
+pass the eight native suites. Alpha 4 packages the icon inside n3.exe, so
+Windows shortcuts made from the downloaded executable inherit it without a
+separate image file. The development desktop shortcut has been refreshed.
+Packaged icon resources load at all seven sizes; packaged file hashes and binary
+privacy checks pass. Alpha 3 remains available unchanged.
 
 ## Next validation work
 
