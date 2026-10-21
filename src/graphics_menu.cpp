@@ -1,6 +1,9 @@
 #include "graphics_menu.h"
 #include "graphics_menu_assets.h"
 #include "frame_rate.h"
+#include "display_settings.h"
+#include "profile_config.h"
+#include "graphics_notification.h"
 #include <rex/runtime.h>
 #include <rex/ppc.h>
 #include <rex/cvar.h>
@@ -22,12 +25,13 @@ extern "C" void sub_821CB2C8(PPCContext&, uint8_t*);
 REXCVAR_DECLARE(bool, frame_pacing_trace);
 
 namespace {
-bool installed = false, pending = false, loading_graphics = false;
+bool installed = false, pending = false;
 bool focus_pending = false;
 uint32_t layout_name = 0, graphics_owner = 0, graphics_root = 0;
 std::filesystem::path config_path;
 constexpr std::array<uint32_t, 3> rates{30, 40, 60};
 constexpr std::array<int, 6> filters{-1, 0, 2, 3, 4, 5};
+constexpr std::array<uint32_t, 4> display_heights{720, 1080, 1440, 2160};
 uint32_t Read32(uint8_t* base, uint32_t at) { return rex::memory::load_and_swap<uint32_t>(base + at); }
 void Write32(uint8_t* base, uint32_t at, uint32_t n) { rex::memory::store_and_swap<uint32_t>(base + at, n); }
 std::vector<uint8_t> ReadFile(const std::filesystem::path& file) {
@@ -53,14 +57,14 @@ void ConfigureSlider(PPCContext& ctx, uint8_t* base, uint32_t slider, uint32_t f
   Write32(base, slider + 200, count - 1); Write32(base, slider + 204, value);
 }
 void Persist() {
-  try { rex::cvar::SaveConfig(config_path); }
-  catch (...) { REXLOG_WARN("Graphics settings could not be saved"); }
+  try { SaveProfileConfig(config_path); NotifyGraphicsSaved(true); }
+  catch (...) { NotifyGraphicsSaved(false); REXLOG_WARN("Graphics settings could not be saved"); }
 }
 }
 
 bool InstallGraphicsMenu(rex::Runtime& runtime, const std::filesystem::path& root,
                          const std::filesystem::path& profile) {
-  installed = false; pending = false; loading_graphics = false; graphics_owner = graphics_root = 0;
+  installed = false; pending = false; focus_pending = false; graphics_owner = graphics_root = 0;
   auto* vfs = runtime.file_system();
   std::vector<std::string> links;
   bool mounted = false;
@@ -77,7 +81,15 @@ bool InstallGraphicsMenu(rex::Runtime& runtime, const std::filesystem::path& roo
     }
     WriteFile(cache / "Menu" / "uititle.uitb", n3::graphics::ExtendTitleLayout(ReadFile(cache / "Menu" / "uititle.uitb")));
     WriteFile(cache / "Menu" / "uigraphics.uitb", n3::graphics::BuildGraphicsLayout(ReadFile(cache / "Menu" / "uioption.uitb")));
-    constexpr auto extra = "\r\n1980\t\"Game default\"\r\n1981\t\"Off\"\r\n1982\t\"2x\"\r\n1983\t\"4x\"\r\n1984\t\"8x\"\r\n1985\t\"16x\"\r\n1989\t\"Filtering\"\r\n1990\t\"30 FPS\"\r\n1991\t\"40 FPS\"\r\n1992\t\"60 FPS\"\r\n1997\t\"Frame rate\"\r\n1998\t\"Anisotropic filtering\"\r\n1999\t\"Graphics\"\r\n";
+    constexpr auto extra =
+      "\r\n1960\t\"720p\"\r\n1961\t\"1080p\"\r\n1962\t\"1440p\"\r\n1963\t\"4K\""
+      "\r\n1965\t\"720p (1x)\"\r\n1966\t\"1440p (2x)\"\r\n1967\t\"4K (3x)\""
+      "\r\n1975\t\"Display\"\r\n1976\t\"Rendering\""
+      "\r\n1977\t\"@(DPad_Small) Select  @(B) Back\""
+      "\r\n1978\t\"Render resolution\"\r\n1979\t\"Display resolution\""
+      "\r\n1980\t\"Game default\"\r\n1981\t\"Off\"\r\n1982\t\"2x\"\r\n1983\t\"4x\"\r\n1984\t\"8x\"\r\n1985\t\"16x\""
+      "\r\n1989\t\"Filtering\"\r\n1990\t\"30 FPS\"\r\n1991\t\"40 FPS\"\r\n1992\t\"60 FPS\""
+      "\r\n1997\t\"Frame rate\"\r\n1998\t\"Anisotropic filtering\"\r\n1999\t\"Graphics\"\r\n";
     for (const auto* lang : {"ENG", "FRA", "GER", "ITA", "SPA"}) {
       std::string lower = lang; for (auto& c : lower) c = char(c + ('a' - 'A'));
       const auto file = cache / "Text" / lang / ("defaulttexttable0000_" + lower + ".txt");
@@ -112,7 +124,7 @@ extern "C" void sub_8218CDC8(PPCContext& ctx, uint8_t* base) {
   const auto message = ctx.r4.u32, sender = Read32(base, message);
   if (installed && sender && Read32(base, sender) == n3::graphics::kButtonId &&
       Read32(base, message + 4) == 1100 && Read32(base, message + 12) == 0) {
-    pending = true; loading_graphics = false;
+    pending = true;
     // Follow the game's own Options transition with a dedicated layout.
     Write32(base, sender, 0x02901004);
     __imp__sub_8218CDC8(ctx, base);
@@ -125,7 +137,7 @@ extern "C" void sub_8218CDC8(PPCContext& ctx, uint8_t* base) {
 extern "C" void __imp__sub_82272470(PPCContext& ctx, uint8_t* base);
 extern "C" void sub_82272470(PPCContext& ctx, uint8_t* base) {
   if (installed && pending && std::strcmp(reinterpret_cast<const char*>(base + ctx.r4.u32), "UiOption.uit") == 0) {
-    ctx.r4.u64 = layout_name; loading_graphics = true;
+    ctx.r4.u64 = layout_name;
   }
   __imp__sub_82272470(ctx, base);
 }
@@ -133,12 +145,14 @@ extern "C" void sub_82272470(PPCContext& ctx, uint8_t* base) {
 extern "C" void __imp__sub_821A8030(PPCContext& ctx, uint8_t* base);
 extern "C" void sub_821A8030(PPCContext& ctx, uint8_t* base) {
   const auto owner = ctx.r3.u32;
-  const bool graphics = pending && loading_graphics;
+  // The native layout cache can skip the loader on later visits. The title
+  // transition identifies Graphics even when no fresh layout load occurs.
+  const bool graphics = installed && pending;
   __imp__sub_821A8030(ctx, base);
   if (!graphics) { graphics_owner = graphics_root = 0; return; }
   graphics_owner = owner; graphics_root = Read32(base, owner + 56);
   focus_pending = true;
-  pending = loading_graphics = false;
+  pending = false;
   const auto fps = Call(ctx, base, sub_821CD7C0, graphics_root, 0x03906001);
   const auto aniso = Call(ctx, base, sub_821CD7C0, graphics_root, 0x03906002);
   int current = -1;
@@ -148,6 +162,19 @@ extern "C" void sub_821A8030(PPCContext& ctx, uint8_t* base) {
   const auto selected = ConfiguredFrameRate();
   ConfigureSlider(ctx, base, fps, 1990, 3, selected == 60 ? 2 : selected == 40 ? 1 : 0);
   ConfigureSlider(ctx, base, aniso, 1980, 6, af_index);
+  const auto display = Call(ctx, base, sub_821CD7C0, graphics_root, 0x03906003);
+  const auto render = Call(ctx, base, sub_821CD7C0, graphics_root, 0x03906004);
+  uint32_t display_index = 0;
+  for (uint32_t i = 0; i < display_heights.size(); ++i)
+    if (display_heights[i] == ConfiguredDisplayHeight()) display_index = i;
+  int shared_scale = 1, x = 1, y = 1;
+  try {
+    shared_scale = std::stoi(rex::cvar::GetFlagByName("resolution_scale"));
+    x = rex::cvar::HasNonDefaultValue("draw_resolution_scale_x") ? std::stoi(rex::cvar::GetFlagByName("draw_resolution_scale_x")) : shared_scale;
+    y = rex::cvar::HasNonDefaultValue("draw_resolution_scale_y") ? std::stoi(rex::cvar::GetFlagByName("draw_resolution_scale_y")) : shared_scale;
+  } catch (...) {}
+  ConfigureSlider(ctx, base, display, 1960, 4, display_index);
+  ConfigureSlider(ctx, base, render, 1965, 3, uint32_t(std::clamp(std::max(x, y), 1, 3) - 1));
   REXLOG_INFO("Graphics page opened");
 }
 
@@ -155,6 +182,13 @@ extern "C" void __imp__sub_821A8370(PPCContext& ctx, uint8_t* base);
 extern "C" void sub_821A8370(PPCContext& ctx, uint8_t* base) {
   const auto owner = ctx.r3.u32;
   __imp__sub_821A8370(ctx, base);
+  if (owner == graphics_owner && rex::cvar::GetFlagByName("n3_live_resolution_failed") == "true") {
+    rex::cvar::SetFlagByName("n3_live_resolution_failed", "false");
+    const auto render = Call(ctx, base, sub_821CD7C0, graphics_root, 0x03906004);
+    const auto active = std::clamp(rex::cvar::Query<uint32_t>("n3_render_scale_active"), 1u, 3u);
+    ConfigureSlider(ctx, base, render, 1965, 3, active - 1);
+    Persist(); NotifyGraphicsSaved(false);
+  }
   if (owner == graphics_owner && focus_pending && Read32(base, owner + 16) == 2) {
     const auto button = Call(ctx, base, sub_821CD7C0, graphics_root, 0x03901001);
     Call(ctx, base, sub_821CB2C8, button);
@@ -175,14 +209,23 @@ extern "C" void sub_821A8B30(PPCContext& ctx, uint8_t* base) {
     if (kind == 1100 && code == 1) {
       Persist(); graphics_owner = graphics_root = 0;
     } else if ((kind == 1100 && (code == 8 || code == 9 || code == 0)) || kind == 400) {
-      if (id == 0x03901001 || id == 0x03901002 || id == 0x03906001 || id == 0x03906002) {
-        const bool fps = id == 0x03901001 || id == 0x03906001;
-        const auto slider = Call(ctx, base, sub_821CD7C0, root, fps ? 0x03906001 : 0x03906002);
+      const auto type = id & 0xFFFFF000u;
+      const auto ordinal = id & 0xFFFu;
+      if ((type == 0x03901000 || type == 0x03906000) && ordinal >= 1 && ordinal <= 4) {
+        const auto slider = Call(ctx, base, sub_821CD7C0, root, 0x03906000 + ordinal);
         if (kind == 1100) Call(ctx, base, sub_821DC710, slider, code == 8 ? 0 : 1);
         const auto index = Read32(base, slider + 192) + Read32(base, slider + 204);
-        if (fps && index < rates.size()) SetFrameRate(rates[index]);
-        if (!fps && index < filters.size()) rex::cvar::SetFlagByName("anisotropic_override", std::to_string(filters[index]));
-        Persist(); REXLOG_INFO("Graphics setting applied: {} index {}", fps ? "frame rate" : "filtering", index);
+        if (ordinal == 1 && index < rates.size()) SetFrameRate(rates[index]);
+        if (ordinal == 2 && index < filters.size()) rex::cvar::SetFlagByName("anisotropic_override", std::to_string(filters[index]));
+        if (ordinal == 3 && index < display_heights.size()) SetDisplayHeight(display_heights[index]);
+        if (ordinal == 4 && index < 3) {
+          const auto scale = std::to_string(index + 1);
+          rex::cvar::SetFlagByName("draw_resolution_scale_x", scale);
+          rex::cvar::SetFlagByName("draw_resolution_scale_y", scale);
+          rex::cvar::SetFlagByName("resolution_scale", scale);
+          rex::cvar::SetFlagByName("n3_live_resolution_request", scale);
+        }
+        Persist(); REXLOG_INFO("Graphics setting applied: row {} index {}", ordinal, index);
         ctx.r3.u64 = 0; return;
       }
     }

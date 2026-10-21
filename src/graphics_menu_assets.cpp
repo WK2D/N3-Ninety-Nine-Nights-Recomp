@@ -99,8 +99,12 @@ std::vector<uint8_t> BuildGraphicsLayout(std::span<const uint8_t> b) {
   const auto slider_end = EndBrace(l.ts, slider);
   const std::vector<Token> slider_template(l.ts.begin() + slider, l.ts.begin() + slider_end + 1);
   const std::set<std::string> visible{
-    "IM_OptionBGM", "IM_OptionSE", "BT_OptionBGM", "BT_OptionSE", "SD_OptionBGM", "SD_OptionSE",
+    "IM_OptionBGM", "IM_OptionSE", "IM_OptionVoice", "IM_OptionCamY",
+    "BT_OptionBGM", "BT_OptionSE", "BT_OptionVoice", "BT_OptionCamY",
+    "SD_OptionBGM", "SD_OptionSE", "SD_OptionVoice", "SD_OptionCamY",
     "IM_OptionVol_center", "IM_OptionVol_right", "TT_OptionVol", "IM_OptionCam_center", "IM_OptionCam_right", "TT_OptionCam",
+    "IM_OptionVib_center", "IM_OptionVib_right", "TT_OptionVib",
+    "IM_OptionContrast_center", "IM_OptionContrast_right", "TT_OptionContrast",
     "IM_Option_BG", "IM_Option_Underline", "TT_Option", "TT_OptionHelp", "IM_Option_Underline_down"};
   std::vector<Token> result;
   for (size_t i = 0; i < l.ts.size();) {
@@ -110,33 +114,46 @@ std::vector<uint8_t> BuildGraphicsLayout(std::span<const uint8_t> b) {
     const auto name = l.ts[i + 2].text;
     const auto end = EndBrace(l.ts, i);
     std::vector<Token> block(l.ts.begin() + i, l.ts.begin() + end + 1);
-    if (name == "SD_OptionBGM" || name == "SD_OptionSE") {
-      const bool fps = name == "SD_OptionBGM";
+    if (name == "SD_OptionBGM" || name == "SD_OptionSE" || name == "SD_OptionVoice" || name == "SD_OptionCamY") {
+      const uint32_t ordinal = name == "SD_OptionBGM" ? 1 : name == "SD_OptionSE" ? 2 : name == "SD_OptionVoice" ? 3 : 4;
       block = slider_template; block[2] = String(4, name);
-      Set(block, "CLASSID", fps ? 0x03906001 : 0x03906002);
+      Set(block, "CLASSID", 0x03906000 + ordinal);
       for (size_t j = 0; j + 4 < block.size(); ++j)
-        if (block[j].text == "RANGE") block[j + 4] = Number(fps ? 2 : 5);
+        if (block[j].text == "RANGE") block[j + 4] = Number(ordinal == 2 ? 5 : ordinal == 3 ? 3 : 2);
     }
     if (!visible.contains(name)) Set(block, "ATTRIBUTE", 16);
     if (name == "BT_OptionBGM" || name == "TT_OptionVol") Set(block, "TEXTID", 1997);
     if (name == "BT_OptionSE") Set(block, "TEXTID", 1998);
     if (name == "TT_OptionCam") Set(block, "TEXTID", 1989);
+    if (name == "BT_OptionVoice") Set(block, "TEXTID", 1979);
+    if (name == "BT_OptionCamY") Set(block, "TEXTID", 1978);
+    if (name == "TT_OptionVib") Set(block, "TEXTID", 1975);
+    if (name == "TT_OptionContrast") Set(block, "TEXTID", 1976);
+    if (name == "TT_OptionHelp") Set(block, "TEXTID", 1977);
     if (name == "TT_Option") { Set(block, "ATTRIBUTE", 19); Set(block, "TEXTID", 1999); }
-    if (name == "TT_OptionVol" || name == "TT_OptionCam" || name == "BT_OptionBGM" || name == "BT_OptionSE" ||
-        name == "IM_OptionBGM" || name == "IM_OptionSE") {
+    if ((kind == "BUTTON" || kind == "IMAGE" || kind == "TEXT") && visible.contains(name) &&
+        name != "TT_Option" && name != "TT_OptionHelp" && name != "IM_Option_BG" &&
+        name != "IM_Option_Underline" && name != "IM_Option_Underline_down" &&
+        !name.ends_with("_center") && !name.ends_with("_right")) {
       for (size_t j = 0; j + 2 < block.size(); ++j)
         if (block[j].text == "SIZE") block[j + 2] = Number(name.starts_with("BT_") ? 500 : name.starts_with("IM_") ? 800 : 300);
     }
     result.insert(result.end(), block.begin(), block.end()); i = end + 1;
   }
   l.ts = std::move(result);
-  // Move the second row alongside the second sidebar banner.
-  const std::map<uint32_t, uint32_t> ys{{0x03905002, 290}, {0x03901002, 294}, {0x03906002, 294}};
+  // Four aligned sections, leaving the footer unobstructed.
+  const std::map<uint32_t, uint32_t> ys{
+    {0x03905001,122},{0x03901001,126},{0x03906001,126},
+    {0x03905002,242},{0x03901002,246},{0x03906002,246},
+    {0x03905003,362},{0x03901003,366},{0x03906003,366},
+    {0x03905004,482},{0x03901004,486},{0x03906004,486},
+    {0x03805003,230},{0x03805004,230},{0x03804002,242},
+    {0x03805005,350},{0x03805006,350},{0x03804003,362}};
   for (size_t i = 0; i + 12 < l.ts.size(); ++i)
     if (l.ts[i].text == "ADDITEM" && l.ts[i + 4].type == 5) {
       const auto found = ys.find(l.ts[i + 4].number);
       if (found != ys.end()) l.ts[i + 11] = Number(found->second);
-      if (l.ts[i + 4].number == 0x03906001 || l.ts[i + 4].number == 0x03906002)
+      if (l.ts[i + 4].number >= 0x03906001 && l.ts[i + 4].number <= 0x03906004)
         l.ts[i + 9] = Number(940);
       if (l.ts[i + 4].number == 0x00603001) {
         l.ts[i + 9] = Number(500); l.ts[i + 11] = Number(32);

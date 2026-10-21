@@ -13,7 +13,7 @@ the tested opening route. Full-game coverage remains unvalidated.
 - Generated 13,762 function assignments across 87 translated C++ source files.
 - Windows x64 Release and RelWithDebInfo compile and link succeed with Clang 20.1.8.
 - Runtime initializes Direct3D 12, input, audio, and XEX imports.
-- Five JavaScript extractor tests and six native regression suites pass.
+- Five JavaScript extractor tests and seven native regression suites pass.
 - A 30-second boot test survived until the harness stopped it, without the prior
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
@@ -100,6 +100,12 @@ filtering. New installations default to 30 FPS. Settings apply without a restart
 and persist through the existing local profile configuration. Original Options
 retains its audio, camera, vibration, and contrast controls.
 
+The page also separates display/output size (720p, 1080p, 1440p, 4K) from internal
+rendering (720p/1x, 1440p/2x, 4K/3x). Display changes resize a normal window on the
+UI thread, accounting for Windows display scaling. Maximized/fullscreen windows
+use desktop output dimensions, and logical-pixel rounding may slightly change
+the requested client dimensions. Explicit launch dimensions retain precedence.
+
 The menu layout and text are generated locally from the player's Menu/Text
 files into a profile cache, mounted read only through runtime VFS directory
 links. The source game folder is not modified. No derived menu assets or game
@@ -111,7 +117,7 @@ use English across the supported menu-language tables.
 | --- | --- |
 | `0x8218CDC8` | Route the main-menu Graphics button through the native Options transition |
 | `0x82272470` | Select the separate Graphics layout for that transition |
-| `0x821A8030` | Configure native arrow/text selectors for FPS and filtering |
+| `0x821A8030` | Configure all four native selectors on every Graphics entry, including cached layout reuse |
 | `0x821A8370` | Focus the first Graphics control after the entry transition completes |
 | `0x821A8B30` | Apply Graphics selector changes without changing audio/camera settings |
 | `0x82248D38` | Initialize the selected supported clock target and matching step |
@@ -139,12 +145,48 @@ cover source/metadata preservation, malformed input, truncation, and duplicate
 extension rejection. The supported local title/options transformations also
 pass against the private game files.
 
-The main-menu Graphics entry opens its separate native page. Both controls now
+The main-menu Graphics entry opens its separate native page. The original two controls
 respond to navigation after focus is assigned at transition completion and
 hidden controls are disabled. The final layout keeps selected labels on one
 line. Live switching to 40 and 60 FPS works, and 16x filtering persists as SDK
 enum 5 in the local profile. These are tested menu/settings outcomes, not
 full-game rendering or animation validation.
+
+Re-entering Graphics previously bypassed selector initialization when the native
+layout cache skipped a fresh file load. Initialization now follows the explicit
+Graphics transition, independent of the loader. The four sidebar labels align
+with their banners, and a short noninteractive notification confirms local saves.
+
+The pinned SDK serializer wrote raw Windows paths inside TOML basic strings,
+making some generated profiles unreadable on restart. Graphics now writes typed
+TOML with escaping and replaces the completed file atomically. Startup repairs
+the identifiable legacy flat format when invalid; other malformed files are
+left alone. The new regression checks string round trips through the SDK loader,
+legacy recovery, malformed-file preservation, and resetting values to defaults.
+
+## Live render resolution
+
+The project builds its own Xenos plugin from the pinned SDK sources. At the end
+of a completed swap it waits for GPU work, allocates replacement render targets,
+texture caches and scale-dependent shader pipelines, reloads active shader
+microcode, and updates EDRAM descriptors. Guest memory, GPU shared memory,
+registers, the command ring and the presenter remain alive. Allocation or device
+limit failures retain the previous resources and setting. This path is intended
+for the main-menu Graphics page, whose next frame redraws render-target contents.
+
+An isolated run switched from 1x to 3x (3840 x 2160) without restarting, logged the
+applied scale, and continued presenting until the harness stopped its own child.
+The subsequent interactive check confirmed live 720p/1440p/4K changes, retained
+values after leaving with B and reopening Graphics, and the saved-settings
+notification. Subsequent gameplay and broader rendering coverage remain pending.
+The first published alpha
+continues to use the original SDK plugin and does not include these controls.
+
+Alpha 2 packages the four-row Graphics page, live render extension, cached-menu
+re-entry correction and profile persistence fixes. Both build configurations pass
+seven native suites, and the supported private menu transformations pass. A
+separate Release run loaded a saved 40 FPS profile and switched from 3x to 1x
+rendering without restarting, continuing until its own harness deadline.
 
 ## Frame-rate validation limits
 

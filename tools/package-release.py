@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -33,7 +34,7 @@ def check_binary(name, data):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", default="v0.1.0-alpha.1")
+    parser.add_argument("--version", default="v0.1.0-alpha.2")
     args = parser.parse_args()
     if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.]+)?", args.version):
         raise ValueError("Invalid release version")
@@ -85,7 +86,8 @@ https://learn.microsoft.com/cpp/windows/redistributing-visual-cpp-files
 No Microsoft development tools or debug runtimes are included.
 """
     hashes = {name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())}
-    manifest = {"version": args.version, "platform": "Windows x64", "files": hashes,
+    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    manifest = {"version": args.version, "platform": "Windows x64", "sourceCommit": commit, "files": hashes,
                 "sdkSourceArchive": sources.name,
                 "sdkSourceSha256": hashlib.sha256(sources.read_bytes()).hexdigest()}
     files["release-manifest.json"] = json.dumps(manifest, indent=2).encode()

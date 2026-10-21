@@ -5,7 +5,7 @@ the Xbox 360 executable with [ReXGlue](https://github.com/rexglue/rexglue-sdk).
 PowerPC game code is translated to C++ ahead of time. ReXGlue supplies the Xbox
 runtime and its Xenos GPU plugin uses Direct3D 12.
 
-**First Windows alpha:** the opening mission has been completed, the following
+**Windows alpha:** the opening mission has been completed, the following
 cutscene played, and saving and loading progress work on the tested opening route.
 Full-game coverage remains unvalidated. See [development status](docs/STATUS.md).
 
@@ -15,7 +15,7 @@ is identified in [game-build.json](docs/game-build.json).
 
 ## Play the Windows alpha
 
-**[Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.1/N3-Recompiled-v0.1.0-alpha.1-windows-x64.zip)**
+**[Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.2/N3-Recompiled-v0.1.0-alpha.2-windows-x64.zip)**
 
 Extract the whole ZIP and run **n3.exe**. Select an ISO made from your own
 disc, or `default.xex` in your own extracted game folder with `data/` beside it.
@@ -32,7 +32,7 @@ folder when updating; replace the application folder with the new release.
 An existing extracted game folder is linked in place. The package contains
 no game assets or original executable. See the [release guide](docs/RELEASE-README.txt).
 
-[Release notes, checksums, and optional developer sources](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/tag/v0.1.0-alpha.1)
+[Release notes, checksums, and optional developer sources](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/tag/v0.1.0-alpha.2)
 are available separately. Only the Windows ZIP is needed to play.
 
 ## Run a development build
@@ -43,7 +43,7 @@ Double-click **N3 Recompiled** on the desktop, or run:
 pwsh -NoProfile -File tools/launch.ps1
 ```
 
-The launcher uses a **1280 x 720 window**, keeps fullscreen off, and stores saves,
+The launcher defaults to a **1280 x 720 window**, keeps fullscreen off, and stores saves,
 profile data, and caches under `private/`. Runtime logs go under `logs/`.
 The shortcut follows the stable launcher and build path, so rebuilding updates
 what it launches. Refresh the shortcut after moving the project folder:
@@ -52,7 +52,7 @@ what it launches. Refresh the shortcut after moving the project folder:
 pwsh -NoProfile -File tools/install-shortcut.ps1
 ```
 
-## Graphics (development build)
+## Graphics
 
 Select **Graphics** below **Tutorial** on the main menu. This opens a separate
 page using the game's Options layout, fonts, arrows, and controller navigation.
@@ -61,11 +61,23 @@ Changes apply immediately and are saved to the local profile.
 
 - **Frame rate:** 30, 40, or 60 FPS; 30 is the default.
 - **Anisotropic filtering:** Game default, Off, 2x, 4x, 8x, or 16x.
+- **Display resolution:** 720p, 1080p, 1440p, or 4K window/output size.
+- **Render resolution:** 720p (1x), 1440p (2x), or 4K (3x) internal rendering.
 
 Filtering overrides apply to eligible mipmapped textures. The renderer retains
 the game's filtering for textures outside that policy. The original Options
 page continues to provide the existing audio, camera, vibration, and contrast
-settings. No restart is needed for the Graphics controls.
+settings. No restart is needed for the Graphics controls. Render changes rebuild
+the scale-dependent GPU caches at a completed frame boundary; a brief pause while
+resources and shaders are prepared is possible. Unsupported changes retain the
+previous render scale. A short confirmation reports when settings are saved.
+
+Display size and internal rendering are independent. Display presets resize a
+normal window; maximized/fullscreen output follows the desktop. Windows display
+scaling can round the requested window size slightly. The renderer supports
+integer scales, so 1080p is available as a display size, with 720p/1440p/4K render
+choices. Saved display settings apply on the next launch; explicit launcher
+`-Width`/`-Height` arguments override them for that launch.
 
 The new menu is derived locally from the player's own data into the profile's
 `ui/` cache. Original game files are read only; no menu assets are bundled.
@@ -84,8 +96,7 @@ pwsh -NoProfile -File tools/launch.ps1 -FrameRate Original
 timing is still under investigation; a requested limit does not guarantee that
 all scenes achieve it. Movie/audio clocks remain unchanged and prerecorded
 videos can retain their original rate. Use the Original override for timing
-comparisons against unmodified game pacing. These controls are in development
-builds and are not included in the first published alpha.
+comparisons against unmodified game pacing. These controls are included from v0.1.0-alpha.2 onward.
 
 ## Build from a fresh checkout
 
@@ -125,7 +136,11 @@ pwsh -NoProfile -File tools/symbolize-fault.ps1
 ```
 
 The build runs callback floating-point, disc importer, game-path, crash-report,
-frame-rate, and menu-layout regression tests. Smoke tests stop
+frame-rate, menu-layout, and profile persistence regression tests. The Xenos GPU
+plugin is rebuilt from the pinned SDK source with the local live-resolution
+extension in `tools/gpu/`. The first build downloads the corresponding SDK sources
+when necessary; `-Python` selects the Python executable for preparation.
+Smoke tests stop
 their own child process at the deadline and record the result under `logs/`;
 survival alone does not establish correct rendering or gameplay. Smoke runs use
 the same local profile as the launcher, so use separate profile copies for future

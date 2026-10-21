@@ -77,14 +77,27 @@ def main():
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         results = list(pool.map(lambda job: (job[0], *snapshot(job[1], job[2])), jobs))
     destination = OUT / "ReXGlue-bd833a2-corresponding-source.zip"
+    extension_files = ["tools/prepare-gpu.py", "tools/gpu/CMakeLists.txt",
+                       "tools/gpu/d3d12_live_resolution.inc", "tools/build.ps1"]
+    extension_manifest = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
+                          for name in extension_files}
     with zipfile.ZipFile(destination, "w", compresslevel=6) as archive:
         add_snapshot(archive, sdk, "rexglue-sdk")
         for path, data, manifest in results:
             manifest["path"] = path
             add_snapshot(archive, data, "rexglue-sdk/" + path)
         add_file(archive, "SOURCE-MANIFEST.json", json.dumps([sdk_manifest] + [r[2] for r in results], indent=2).encode())
+        for name in extension_files:
+            add_file(archive, "n3-gpu-extension/" + name, (ROOT / name).read_bytes())
+        add_file(archive, "n3-gpu-extension/SHA256.json", json.dumps(extension_manifest, indent=2).encode())
         add_file(archive, "README.txt", b"""Corresponding source for the ReXGlue runtime and GPU DLLs.
-SDK commit bd833a2ab69d305f99ddf57418fc38ffec8af93d; upstream sources unmodified.
+SDK commit bd833a2ab69d305f99ddf57418fc38ffec8af93d; upstream sources preserved.
+The N3 GPU extension and preparation/build scripts are in n3-gpu-extension/.
+They rebuild the Xenos plugin with live render-resolution support. To reproduce
+the application build, use the matching N3 project release tag and its
+tools/build.ps1; it applies these sources to the pinned SDK. The supplied runtime
+and supporting libraries remain the pinned SDK builds. Extension file hashes
+are recorded in n3-gpu-extension/SHA256.json.
 Non-Vulkan dependencies are included at the SDK's pinned commits. License texts
 and build scripts are preserved in each source directory. No game material is
 included. FFmpeg and libmspack are LGPL components; see their COPYING files.

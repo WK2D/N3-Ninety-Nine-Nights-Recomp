@@ -1,4 +1,4 @@
-N3 Recompiled - v0.1.0-alpha.1 (Windows x64)
+N3 Recompiled - v0.1.0-alpha.2 (Windows x64)
 
 GET STARTED
 1. Extract the entire Windows x64 ZIP to a writable folder.
@@ -30,6 +30,20 @@ To select another game copy, remove only game-path.txt from the profile folder.
 Never remove the profile folder to reset setup: it also contains saves.
 Controller bindings and other runtime settings are available in the SDK overlay.
 
+GRAPHICS
+Select Graphics below Tutorial on the main menu. Up/down selects a row;
+left/right changes its value; B returns. Settings save locally with a brief
+confirmation and remain selected when reopening the page.
+- Frame rate: 30 (default), 40 or 60 FPS.
+- Anisotropic filtering: Game default, Off, 2x, 4x, 8x or 16x.
+- Display resolution: 720p, 1080p, 1440p or 4K window/output size.
+- Render resolution: 720p (1x), 1440p (2x) or 4K (3x) internal rendering.
+All four controls apply without restarting. Render changes can briefly pause
+while GPU resources and shaders are rebuilt. Display sizing applies to normal
+windows; maximized/fullscreen output follows the desktop. Windows scaling may
+round window dimensions slightly. Display size and internal rendering are
+independent. 1080p is available as display output; internal scales are integer.
+
 OPTIONAL COMMAND LINE
 n3_import.exe inspect "path\to\your-disc.iso"
 n3_import.exe import "path\to\your-disc.iso" "new\game-folder"
@@ -39,13 +53,16 @@ must not exist; unsuccessful/cancelled imports clean up their newly created tree
 
 ALPHA STATUS
 The first mission, the following cutscene, and writing a save have been exercised
-successfully on the opening route. A full playthrough, reloading saves across
-restarts, other characters, and other PCs have not been established. Presentation
+successfully on the opening route; loading saved progress also succeeds there.
+Higher frame-rate modes remain experimental: animations can appear accelerated.
+A full playthrough, later characters/missions, and other PCs remain unvalidated. Presentation
 glitches may remain. Build and importer checks do not establish gameplay coverage.
 The first-launch picker/progress UI has not completed an automated visual check.
 
 THIRD-PARTY SOFTWARE
 ReXGlue and its dependencies are credited in THIRD_PARTY.md and licenses/.
+The Xenos plugin includes the project's live-resolution extension; its source
+and build scripts accompany the matching SDK sources.
 FFmpeg and libmspack include LGPL components. The matching SDK and dependency
 sources and build scripts are supplied as a separate corresponding-source ZIP
 on this release. Compatible rebuilt runtime/GPU DLLs may replace the supplied

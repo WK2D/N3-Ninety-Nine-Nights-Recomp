@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [ValidateSet('Debug','Release','RelWithDebInfo')][string]$Configuration = 'RelWithDebInfo',
-    [ValidateRange(1,64)][int]$Jobs = 4
+    [ValidateRange(1,64)][int]$Jobs = 4,
+    [string]$Python = 'python'
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -14,6 +15,12 @@ foreach ($name in @('PATH','INCLUDE','LIB','VCToolsInstallDir','WindowsSdkDir','
 }
 Push-Location $root
 try {
+    if (!(Test-Path (Join-Path $root 'out/release/ReXGlue-bd833a2-corresponding-source.zip'))) {
+        & $Python (Join-Path $PSScriptRoot 'bundle-sdk-source.py')
+        if ($LASTEXITCODE) { throw 'Pinned SDK source preparation failed.' }
+    }
+    & $Python (Join-Path $PSScriptRoot 'prepare-gpu.py')
+    if ($LASTEXITCODE) { throw 'GPU extension preparation failed.' }
     if (Test-Path "$localTools/msvc/setup_x64.bat") {
         $vc = Get-ChildItem "$localTools/msvc/VC/Tools/MSVC" -Directory | Sort-Object Name -Descending | Select-Object -First 1
         $kit = "$localTools/msvc/Windows Kits/10"

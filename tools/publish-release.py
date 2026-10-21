@@ -1,15 +1,16 @@
 """Publish a verified release using the existing Git credential helper session."""
 import hashlib
+import argparse
 import json
 from pathlib import Path
 import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 REPO = "WK2D/N3-Ninety-Nine-Nights-Recomp"
-TAG = "v0.1.0-alpha.1"
 API = "https://api.github.com/repos/" + REPO
 
 
@@ -24,6 +25,13 @@ def asset_label(name):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--version", default="v0.1.0-alpha.2")
+    args = parser.parse_args()
+    import re
+    if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.]+)?", args.version):
+        raise RuntimeError("Invalid release version")
+    tag = args.version
     if subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT).strip():
         raise RuntimeError("Commit source changes before publishing")
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
@@ -42,6 +50,13 @@ def main():
             raise RuntimeError("Release asset checksum changed")
         assets.append(path)
     assets.append(folder / "SHA256SUMS.txt")
+    expected_names = {f"N3-Recompiled-{tag}-windows-x64.zip", "ReXGlue-bd833a2-corresponding-source.zip", "SHA256SUMS.txt"}
+    if {path.name for path in assets} != expected_names:
+        raise RuntimeError("Checksums do not describe this release's expected assets")
+    with zipfile.ZipFile(folder / f"N3-Recompiled-{tag}-windows-x64.zip") as package:
+        manifest = json.loads(package.read("release-manifest.json"))
+        if manifest["version"] != tag or manifest.get("sourceCommit") != commit:
+            raise RuntimeError("Packaged source commit or version does not match the release")
     # Keep credentials in memory and send them only to GitHub's API/upload hosts.
     result = subprocess.run(["git", "credential", "fill"], input="protocol=https\nhost=github.com\n\n",
                             cwd=ROOT, capture_output=True, text=True, check=True)
@@ -64,15 +79,15 @@ def main():
             return json.load(response)
 
     try:
-        release = request("GET", API + "/releases/tags/" + TAG)
+        release = request("GET", API + "/releases/tags/" + tag)
         if not release["draft"]:
             raise RuntimeError("This release is already public; no assets were changed")
     except urllib.error.HTTPError as error:
         if error.code != 404:
             raise RuntimeError(f"GitHub release lookup failed (HTTP {error.code})") from None
         release = request("POST", API + "/releases", {
-            "tag_name": TAG, "target_commitish": commit, "name": "N3 Recompiled " + TAG,
-            "body": (ROOT / f"docs/RELEASE-{TAG}.md").read_text(encoding="utf-8"),
+            "tag_name": tag, "target_commitish": commit, "name": "N3 Recompiled " + tag,
+            "body": (ROOT / f"docs/RELEASE-{tag}.md").read_text(encoding="utf-8"),
             "draft": True, "prerelease": True})
     uploaded = {asset["name"]: asset for asset in release["assets"]}
     for path in assets:

@@ -21,8 +21,11 @@ included in the tracked project or release asset files.
 
 ## Binary releases
 
-The Windows package includes the unmodified ReXGlue runtime and Xenos GPU DLLs
-from the pinned SDK. Its third-party components include SDL3, FFmpeg, libmspack,
+The first Windows alpha includes the unmodified ReXGlue runtime and Xenos GPU DLLs
+from the pinned SDK. Alpha 2 and development builds retain that runtime and rebuild the Xenos
+plugin with the live-resolution extension in `tools/gpu/`; `tools/prepare-gpu.py`
+applies the extension to the pinned source without modifying the installed SDK.
+Its third-party components include SDL3, FFmpeg, libmspack,
 fmt, spdlog, simde, xxHash, toml++, utfcpp, Dear ImGui, CLI11, o1heap, and small
 vendored utility libraries. Their notices, including notices embedded in source
 headers, are preserved under `licenses/` in the package. This software is based

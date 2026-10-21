@@ -10,8 +10,10 @@
 #include "game_setup.h"
 #include "frame_rate.h"
 #include "graphics_menu.h"
+#include "display_settings.h"
+#include "profile_config.h"
+#include "graphics_notification.h"
 #include <rex/ui/flags.h>
-
 class N3App : public rex::ReXApp {
  public:
   using rex::ReXApp::ReXApp;
@@ -30,6 +32,15 @@ class N3App : public rex::ReXApp {
       REXCVAR_SET(window_width, 1280);
     if (rex::cvar::GetFlagSource("window_height") == rex::cvar::Source::kDefault)
       REXCVAR_SET(window_height, 720);
+  }
+
+  void OnPostSetup() override { InstallDisplaySettings(app_context(), *window()); }
+  void OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) override {
+    graphics_notification_ = CreateGraphicsNotification(drawer);
+  }
+  void OnShutdown() override { graphics_notification_.reset(); ShutdownDisplaySettings(); }
+  void OnWindowPixelSizeChanged(uint32_t width, uint32_t height) override {
+    RecordDisplayOutputSize(width, height);
   }
 
   void OnPostInitLogging() override { InstallCrashDiagnostics(game_profile_ / "logs"); }
@@ -51,6 +62,7 @@ class N3App : public rex::ReXApp {
   void OnConfigurePaths(rex::PathConfig& paths) override {
     ConfigureGamePaths(paths);
     paths.config_path = paths.user_data_root / "n3.toml";
+    RepairLegacyProfileConfig(paths.config_path);
   }
 
   void OnConfigureLogging(rex::LogConfig& config) override {
@@ -58,6 +70,7 @@ class N3App : public rex::ReXApp {
   }
 
  private:
+  std::unique_ptr<rex::ui::ImGuiDialog> graphics_notification_;
   std::filesystem::path game_profile_;
 
   void ConfigureGamePaths(rex::PathConfig& paths) {

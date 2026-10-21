@@ -24,8 +24,11 @@ set(N3_SOURCES
     src/runtime_fixes.cpp
     src/game_setup.cpp
     src/frame_rate.cpp
+    src/display_settings.cpp
+    src/profile_config.cpp
     src/graphics_menu.cpp
     src/graphics_menu_assets.cpp
+    src/graphics_notification.cpp
 )
 
 if(WIN32)
@@ -34,6 +37,7 @@ else()
     add_executable(n3 ${N3_SOURCES})
 endif()
 
+add_subdirectory(tools/gpu)
 rexglue_setup_target(n3 GPU_PLUGINS xenos)
 
 add_library(n3_game_data STATIC src/game_data.cpp)
@@ -67,4 +71,8 @@ if(BUILD_TESTING)
     add_executable(n3_graphics_menu_test tests/graphics_menu_test.cpp src/graphics_menu_assets.cpp)
     target_include_directories(n3_graphics_menu_test PRIVATE src)
     add_test(NAME graphics_menu_assets COMMAND n3_graphics_menu_test)
+    add_executable(n3_profile_config_test tests/profile_config_test.cpp src/profile_config.cpp)
+    target_include_directories(n3_profile_config_test PRIVATE src)
+    target_link_libraries(n3_profile_config_test PRIVATE rex::runtime)
+    add_test(NAME profile_config COMMAND n3_profile_config_test)
 endif()
