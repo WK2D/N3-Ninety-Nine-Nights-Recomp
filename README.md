@@ -52,26 +52,40 @@ what it launches. Refresh the shortcut after moving the project folder:
 pwsh -NoProfile -File tools/install-shortcut.ps1
 ```
 
-## Experimental 60 FPS (development build)
+## Graphics (development build)
 
-Press **F4**, select **N3/Graphics**, enable **n3_60fps**, choose **Save to config**,
-and restart the game. The original mode is the default. The desktop shortcut
-uses the saved choice. This option is in the current development build.
+Select **Graphics** below **Tutorial** on the main menu. This opens a separate
+page using the game's Options layout, fonts, arrows, and controller navigation.
+Use up/down to select a row and left/right to change its value. **B** returns.
+Changes apply immediately and are saved to the local profile.
 
-For a single launch:
+- **Frame rate:** 30, 40, or 60 FPS; 30 is the default.
+- **Anisotropic filtering:** Game default, Off, 2x, 4x, 8x, or 16x.
+
+Filtering overrides apply to eligible mipmapped textures. The renderer retains
+the game's filtering for textures outside that policy. The original Options
+page continues to provide the existing audio, camera, vibration, and contrast
+settings. No restart is needed for the Graphics controls.
+
+The new menu is derived locally from the player's own data into the profile's
+`ui/` cache. Original game files are read only; no menu assets are bundled.
+
+For a single launch, development overrides remain available:
 
 ```powershell
+pwsh -NoProfile -File tools/launch.ps1 -FrameRate 30
+pwsh -NoProfile -File tools/launch.ps1 -FrameRate 40
 pwsh -NoProfile -File tools/launch.ps1 -FrameRate 60
 pwsh -NoProfile -File tools/launch.ps1 -FrameRate Original
 ```
 
-The option targets 60 FPS by changing the game's frame-clock target and simulation
-step together, and lifting explicit two-vblank presentation intervals. It leaves
-the global guest clock and movie/audio clocks alone. Prerecorded videos can still
-run at their original frame rate. Initial gameplay testing reaches a steady
-60 FPS, but animations appear faster than in the original mode. Animation and
-combat timing are still under investigation. Keep using the original mode for
-reference timing; this is experimental support, not a full-game 60 FPS guarantee.
+**Development caveat:** higher frame-rate modes remain experimental. Initial
+60 FPS testing is smooth, but animations appear accelerated. Animation/combat
+timing is still under investigation; a requested limit does not guarantee that
+all scenes achieve it. Movie/audio clocks remain unchanged and prerecorded
+videos can retain their original rate. Use the Original override for timing
+comparisons against unmodified game pacing. These controls are in development
+builds and are not included in the first published alpha.
 
 ## Build from a fresh checkout
 
@@ -111,7 +125,7 @@ pwsh -NoProfile -File tools/symbolize-fault.ps1
 ```
 
 The build runs callback floating-point, disc importer, game-path, crash-report,
-and frame-rate regression tests. Smoke tests stop
+frame-rate, and menu-layout regression tests. Smoke tests stop
 their own child process at the deadline and record the result under `logs/`;
 survival alone does not establish correct rendering or gameplay. Smoke runs use
 the same local profile as the launcher, so use separate profile copies for future

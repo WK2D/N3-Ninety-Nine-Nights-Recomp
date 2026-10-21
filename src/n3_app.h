@@ -9,6 +9,7 @@
 #include "runtime_fixes.h"
 #include "game_setup.h"
 #include "frame_rate.h"
+#include "graphics_menu.h"
 #include <rex/ui/flags.h>
 
 class N3App : public rex::ReXApp {
@@ -36,7 +37,9 @@ class N3App : public rex::ReXApp {
   void OnPostLoadXexImage() override {
     InstallRuntimeFixes(*runtime());
     InitializeFrameRate();
+    InstallGraphicsMenu(*runtime(), game_data_root(), user_data_root());
   }
+
 
   std::optional<rex::PathConfig> OnFinalizePaths(const rex::PathConfig& defaults,
       std::function<void(rex::PathConfig)>) override {

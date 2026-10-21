@@ -13,7 +13,7 @@ the tested opening route. Full-game coverage remains unvalidated.
 - Generated 13,762 function assignments across 87 translated C++ source files.
 - Windows x64 Release and RelWithDebInfo compile and link succeed with Clang 20.1.8.
 - Runtime initializes Direct3D 12, input, audio, and XEX imports.
-- Five JavaScript extractor tests and five native regression suites pass.
+- Five JavaScript extractor tests and six native regression suites pass.
 - A 30-second boot test survived until the harness stopped it, without the prior
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
@@ -91,46 +91,78 @@ their pinned revision manifest accompany the release. The picker and progress
 dialog still need a completed visual interaction check; importer and path logic
 have native automated coverage.
 
-## Experimental 60 FPS
+## Graphics menu and live frame-rate control
 
-The development build exposes `n3_60fps` in the F4 settings overlay under
-`N3/Graphics`. It defaults off, saves through the existing profile settings, and
-requires a restart. `tools/launch.ps1 -FrameRate 60` and `-FrameRate Original`
-provide per-launch overrides; the default launcher respects the profile setting.
+The development build adds Graphics below Tutorial on the main menu and a
+separate native page derived from the Options layout. The page contains 30,
+40, and 60 FPS choices plus Game default / Off / 2x / 4x / 8x / 16x anisotropic
+filtering. New installations default to 30 FPS. Settings apply without a restart
+and persist through the existing local profile configuration. Original Options
+retains its audio, camera, vibration, and contrast controls.
+
+The menu layout and text are generated locally from the player's Menu/Text
+files into a profile cache, mounted read only through runtime VFS directory
+links. The source game folder is not modified. No derived menu assets or game
+text are tracked or included in release packages. Installation failure removes
+its new VFS links/device and retains the original menus. Added labels currently
+use English across the supported menu-language tables.
 
 | Entry | Treatment |
 | --- | --- |
-| `0x82248D38` | Before the original clock initializer, set a supported frame-clock target to 60 and its simulation step to 1/60 second; the translated initializer computes the guest deadline/period |
-| `0x823AA3B0` | Temporarily replace an explicit two-vblank presentation interval with one during command generation, then restore the game's requested state |
-| `0x823AA520` | Optional `frame_pacing_trace` records guest presentation counts and elapsed microseconds; it is disabled by default |
+| `0x8218CDC8` | Route the main-menu Graphics button through the native Options transition |
+| `0x82272470` | Select the separate Graphics layout for that transition |
+| `0x821A8030` | Configure native arrow/text selectors for FPS and filtering |
+| `0x821A8370` | Focus the first Graphics control after the entry transition completes |
+| `0x821A8B30` | Apply Graphics selector changes without changing audio/camera settings |
+| `0x82248D38` | Initialize the selected supported clock target and matching step |
+| `0x8223FE70` | Apply a changed target, step, period, and deadline before the next game update |
+| `0x823AA3B0` | Lift an explicit two-vblank interval for targets above 30, restoring requested state afterward |
+| `0x823AA520` | Pace presentations, including menus that bypass the frame clock; optional timing trace |
 
-These are strong hooks over the generated weak entries. Original translations
-remain available as `__imp__` functions. No shared floating-point constants,
-global guest clock, audio clock, or movie decoder timing are patched. Unknown
-frame-clock targets and other presentation intervals retain their original
-behavior. The game's native clock constructor initializes a 40 Hz target;
-the supported clock targets for this hook are 30, 40, and 60.
+The live clock update retains the enable/suspend flags and global guest clock.
+The original native clock constructor uses 40 Hz and a 0.025-second step;
+`-FrameRate Original` preserves that native policy and skips the added limiter.
+The older `n3_60fps` flag is retained as a hidden compatibility alias. The shared
+`n3_frame_rate` setting can also be changed through the SDK overlay.
 
-The regression executes the actual translated clock initializer against isolated
-guest memory/stack. It checks original behavior, a 60 Hz deadline and 1/60-second
-step, nonvolatile register/stack preservation, unchanged global clock settings,
-restart behavior, presentation policy, and indirect hook registration. Sixty
-configured simulation steps represent one second within floating-point precision.
+Anisotropic choices map to the SDK's hot-reloadable `anisotropic_override` enum,
+not literal sample counts: 16x is enum 5. D3D12 evaluates the override while
+building sampler parameters on draws and refreshes descriptors when those
+parameters change. The override affects eligible mipmapped linear-filtered
+textures; it does not force filtering onto every texture.
 
-Opening-video measurements remain approximately 30 presentations per second;
-the video has separate playback timing. Initial menu/gameplay testing is smooth
-at a reported 60 FPS, with normal video playback. A sampled gameplay trace
-measures approximately 60.02 guest presentations per second. This counts guest
-present calls, not independently verified unique rendered frames.
+The native regressions execute the actual translated clock initializer and
+switch repeatedly among 30/40/60 without restarting. They check period/step
+consistency, suspended-clock preservation, global-clock preservation, shared
+registry updates, rejected rates, and strong hook registration. Layout tests
+cover source/metadata preservation, malformed input, truncation, and duplicate
+extension rejection. The supported local title/options transformations also
+pass against the private game files.
 
-Animations appear sped up in this mode. Correct animation/combat timing is not
-established, and this remains a known issue. The 1/60-second clock step reaches
-the engine worker through `0x8225FBE8`, `0x82316A78`, and `0x8230E560`; separate
-update paths also use integer frame counters and fixed increments. No unverified
-animation multiplier or shared-constant patch has been applied. A matched scene
-comparison against original-mode gameplay is needed to establish the correction;
-opening-video timing alone cannot provide that baseline. Later scenes, scripted
-events, performance under load, and audio sync need further play testing.
+The main-menu Graphics entry opens its separate native page. Both controls now
+respond to navigation after focus is assigned at transition completion and
+hidden controls are disabled. The final layout keeps selected labels on one
+line. Live switching to 40 and 60 FPS works, and 16x filtering persists as SDK
+enum 5 in the local profile. These are tested menu/settings outcomes, not
+full-game rendering or animation validation.
+
+## Frame-rate validation limits
+
+Higher frame-rate modes remain experimental. Earlier 60 FPS gameplay testing
+reported smooth menus/gameplay and normal video playback; a sampled trace
+measured approximately 60.02 guest presentations per second. Guest present-call
+counts do not independently establish unique rendered frames. The updated
+presentation limiter measures approximately 30 presentations per second in the
+initial 30 FPS menu/startup check. A live switch to 40 FPS measures approximately
+40 presentations per second on the Graphics page. Broader scene measurements
+and filtering image-quality comparisons remain pending.
+
+Animations appear accelerated at 60 FPS. Correct animation/combat timing is not
+established. The configured step reaches the engine worker through `0x8225FBE8`,
+`0x82316A78`, and `0x8230E560`; separate paths also use integer frame counters and
+fixed increments. No unverified animation multiplier or shared-constant patch
+has been applied. Matched gameplay comparisons with original pacing are still
+needed, together with later-scene, scripted-event, performance, and audio tests.
 
 ## Next validation work
 

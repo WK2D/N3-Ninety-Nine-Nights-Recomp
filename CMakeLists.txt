@@ -24,6 +24,8 @@ set(N3_SOURCES
     src/runtime_fixes.cpp
     src/game_setup.cpp
     src/frame_rate.cpp
+    src/graphics_menu.cpp
+    src/graphics_menu_assets.cpp
 )
 
 if(WIN32)
@@ -62,4 +64,7 @@ if(BUILD_TESTING)
     target_link_libraries(n3_frame_rate_test PRIVATE n3_recomp rex::runtime)
     rexglue_apply_target_settings(n3_frame_rate_test)
     add_test(NAME frame_rate_policy COMMAND n3_frame_rate_test)
+    add_executable(n3_graphics_menu_test tests/graphics_menu_test.cpp src/graphics_menu_assets.cpp)
+    target_include_directories(n3_graphics_menu_test PRIVATE src)
+    add_test(NAME graphics_menu_assets COMMAND n3_graphics_menu_test)
 endif()
