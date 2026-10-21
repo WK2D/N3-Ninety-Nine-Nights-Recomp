@@ -17,7 +17,7 @@ try {
         $shortcut.Arguments = '-NoLogo -NoProfile -WindowStyle Hidden -File "' + (Join-Path $PSScriptRoot 'launch.ps1') + '"'
         $shortcut.WorkingDirectory = $root
         $shortcut.Description = 'Launch the current N3 Recompiled build in a 1280 x 720 window'
-        $shortcut.IconLocation = (Join-Path $root 'out/build/win-amd64-relwithdebinfo/n3.exe') + ',0'
+        $shortcut.IconLocation = (Join-Path $root 'resources/n3.ico') + ',0'
         $shortcut.Save()
     } finally { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shortcut) }
 } finally { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell) }

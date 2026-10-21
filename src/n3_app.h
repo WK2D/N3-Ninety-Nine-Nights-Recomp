@@ -6,6 +6,7 @@
 
 #include <rex/rex_app.h>
 #include "crash_diagnostics.h"
+#include "app_icon.h"
 #include "runtime_fixes.h"
 #include "game_setup.h"
 #include "frame_rate.h"
@@ -36,6 +37,7 @@ class N3App : public rex::ReXApp {
   }
 
   void OnPostSetup() override {
+    ApplyAppIcon(*window());
     InstallDisplaySettings(app_context(), *window());
     InstallGraphicsAudit(app_context());
   }

@@ -242,6 +242,15 @@ fixed increments. No unverified animation multiplier or shared-constant patch
 has been applied. Matched gameplay comparisons with original pacing are still
 needed, together with later-scene, scripted-event, performance, and audio tests.
 
+## Application icon
+
+The application embeds an emerald-and-silver N3 icon with 16, 24, 32, 48, 64,
+128 and 256 pixel variants. The window applies the embedded resource, and the
+development shortcut uses the matching ICO. The full-resolution transparent
+PNG contains pixel data only, without image metadata. Both build configurations
+pass the eight native suites. This branding change follows alpha 3 and does not
+replace its published release assets.
+
 ## Next validation work
 
 1. Measure original-mode gameplay in the same scene and correct the accelerated

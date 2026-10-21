@@ -1,5 +1,7 @@
 # N3 Recompiled
 
+<img src="resources/n3-icon.png" width="128" height="128" alt="N3 Recompiled icon">
+
 A native Windows recompilation project for **N3: Ninety-Nine Nights**, built from
 the Xbox 360 executable with [ReXGlue](https://github.com/rexglue/rexglue-sdk).
 PowerPC game code is translated to C++ ahead of time. ReXGlue supplies the Xbox

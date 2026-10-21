@@ -20,6 +20,7 @@ include(generated/rexglue.cmake)
 # Sources
 set(N3_SOURCES
     src/main.cpp
+    src/app_icon.cpp
     src/crash_diagnostics.cpp
     src/runtime_fixes.cpp
     src/game_setup.cpp
@@ -34,7 +35,10 @@ set(N3_SOURCES
 )
 
 if(WIN32)
+    enable_language(RC)
+    configure_file(resources/n3.rc.in ${CMAKE_CURRENT_BINARY_DIR}/n3.rc @ONLY)
     add_executable(n3 WIN32 ${N3_SOURCES})
+    target_sources(n3 PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/n3.rc)
 else()
     add_executable(n3 ${N3_SOURCES})
 endif()
