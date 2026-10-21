@@ -8,6 +8,7 @@
 #include "crash_diagnostics.h"
 #include "runtime_fixes.h"
 #include "game_setup.h"
+#include "frame_rate.h"
 #include <rex/ui/flags.h>
 
 class N3App : public rex::ReXApp {
@@ -32,7 +33,10 @@ class N3App : public rex::ReXApp {
 
   void OnPostInitLogging() override { InstallCrashDiagnostics(game_profile_ / "logs"); }
 
-  void OnPostLoadXexImage() override { InstallRuntimeFixes(*runtime()); }
+  void OnPostLoadXexImage() override {
+    InstallRuntimeFixes(*runtime());
+    InitializeFrameRate();
+  }
 
   std::optional<rex::PathConfig> OnFinalizePaths(const rex::PathConfig& defaults,
       std::function<void(rex::PathConfig)>) override {

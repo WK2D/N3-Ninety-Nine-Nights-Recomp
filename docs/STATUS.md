@@ -13,7 +13,7 @@ the tested opening route. Full-game coverage remains unvalidated.
 - Generated 13,762 function assignments across 87 translated C++ source files.
 - Windows x64 Release and RelWithDebInfo compile and link succeed with Clang 20.1.8.
 - Runtime initializes Direct3D 12, input, audio, and XEX imports.
-- Five JavaScript extractor tests and four native regression suites pass.
+- Five JavaScript extractor tests and five native regression suites pass.
 - A 30-second boot test survived until the harness stopped it, without the prior
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
@@ -91,13 +91,57 @@ their pinned revision manifest accompany the release. The picker and progress
 dialog still need a completed visual interaction check; importer and path logic
 have native automated coverage.
 
+## Experimental 60 FPS
+
+The development build exposes `n3_60fps` in the F4 settings overlay under
+`N3/Graphics`. It defaults off, saves through the existing profile settings, and
+requires a restart. `tools/launch.ps1 -FrameRate 60` and `-FrameRate Original`
+provide per-launch overrides; the default launcher respects the profile setting.
+
+| Entry | Treatment |
+| --- | --- |
+| `0x82248D38` | Before the original clock initializer, set a supported frame-clock target to 60 and its simulation step to 1/60 second; the translated initializer computes the guest deadline/period |
+| `0x823AA3B0` | Temporarily replace an explicit two-vblank presentation interval with one during command generation, then restore the game's requested state |
+| `0x823AA520` | Optional `frame_pacing_trace` records guest presentation counts and elapsed microseconds; it is disabled by default |
+
+These are strong hooks over the generated weak entries. Original translations
+remain available as `__imp__` functions. No shared floating-point constants,
+global guest clock, audio clock, or movie decoder timing are patched. Unknown
+frame-clock targets and other presentation intervals retain their original
+behavior. The game's native clock constructor initializes a 40 Hz target;
+the supported clock targets for this hook are 30, 40, and 60.
+
+The regression executes the actual translated clock initializer against isolated
+guest memory/stack. It checks original behavior, a 60 Hz deadline and 1/60-second
+step, nonvolatile register/stack preservation, unchanged global clock settings,
+restart behavior, presentation policy, and indirect hook registration. Sixty
+configured simulation steps represent one second within floating-point precision.
+
+Opening-video measurements remain approximately 30 presentations per second;
+the video has separate playback timing. Initial menu/gameplay testing is smooth
+at a reported 60 FPS, with normal video playback. A sampled gameplay trace
+measures approximately 60.02 guest presentations per second. This counts guest
+present calls, not independently verified unique rendered frames.
+
+Animations appear sped up in this mode. Correct animation/combat timing is not
+established, and this remains a known issue. The 1/60-second clock step reaches
+the engine worker through `0x8225FBE8`, `0x82316A78`, and `0x8230E560`; separate
+update paths also use integer frame counters and fixed increments. No unverified
+animation multiplier or shared-constant patch has been applied. A matched scene
+comparison against original-mode gameplay is needed to establish the correction;
+opening-video timing alone cannot provide that baseline. Later scenes, scripted
+events, performance under load, and audio sync need further play testing.
+
 ## Next validation work
 
-1. Repeat the opening route on the packaged Release build and other PCs.
-2. Exercise later missions, characters, rendering effects, and large enemy counts.
-3. Extend save/load coverage across later missions, repeated restarts, and profiles.
-4. Compare scenes and timing against console or emulator reference captures.
-5. Investigate additional indirect targets or translation problems from logs.
+1. Measure original-mode gameplay in the same scene and correct the accelerated
+   animation paths in experimental 60 FPS. Then compare combat, cutscenes, and
+   audio across missions.
+2. Repeat the opening route on the packaged Release build and other PCs.
+3. Exercise later missions, characters, rendering effects, and large enemy counts.
+4. Extend save/load coverage across later missions, repeated restarts, and profiles.
+5. Compare scenes and timing against console or emulator reference captures.
+6. Investigate additional indirect targets or translation problems from logs.
 
 Other game revisions, title updates, platforms, and full-game playthroughs have
 not been validated. Keep performance and visual claims tied to measured scenes.

@@ -52,6 +52,27 @@ what it launches. Refresh the shortcut after moving the project folder:
 pwsh -NoProfile -File tools/install-shortcut.ps1
 ```
 
+## Experimental 60 FPS (development build)
+
+Press **F4**, select **N3/Graphics**, enable **n3_60fps**, choose **Save to config**,
+and restart the game. The original mode is the default. The desktop shortcut
+uses the saved choice. This option is in the current development build.
+
+For a single launch:
+
+```powershell
+pwsh -NoProfile -File tools/launch.ps1 -FrameRate 60
+pwsh -NoProfile -File tools/launch.ps1 -FrameRate Original
+```
+
+The option targets 60 FPS by changing the game's frame-clock target and simulation
+step together, and lifting explicit two-vblank presentation intervals. It leaves
+the global guest clock and movie/audio clocks alone. Prerecorded videos can still
+run at their original frame rate. Initial gameplay testing reaches a steady
+60 FPS, but animations appear faster than in the original mode. Animation and
+combat timing are still under investigation. Keep using the original mode for
+reference timing; this is experimental support, not a full-game 60 FPS guarantee.
+
 ## Build from a fresh checkout
 
 Windows x64 is the platform tested so far. Setup needs PowerShell 7, Node.js 18+
@@ -89,8 +110,8 @@ pwsh -NoProfile -File tools/smoke.ps1 -Seconds 30
 pwsh -NoProfile -File tools/symbolize-fault.ps1
 ```
 
-The build runs callback floating-point, disc importer, game-path, and crash-report
-regression tests. Smoke tests stop
+The build runs callback floating-point, disc importer, game-path, crash-report,
+and frame-rate regression tests. Smoke tests stop
 their own child process at the deadline and record the result under `logs/`;
 survival alone does not establish correct rendering or gameplay. Smoke runs use
 the same local profile as the launcher, so use separate profile copies for future

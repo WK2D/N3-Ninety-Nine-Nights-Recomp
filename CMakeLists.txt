@@ -23,6 +23,7 @@ set(N3_SOURCES
     src/crash_diagnostics.cpp
     src/runtime_fixes.cpp
     src/game_setup.cpp
+    src/frame_rate.cpp
 )
 
 if(WIN32)
@@ -56,4 +57,9 @@ if(BUILD_TESTING)
     add_executable(n3_crash_diagnostics_test tests/crash_diagnostics_test.cpp src/crash_diagnostics.cpp)
     target_include_directories(n3_crash_diagnostics_test PRIVATE src)
     add_test(NAME crash_diagnostics COMMAND n3_crash_diagnostics_test)
+    add_executable(n3_frame_rate_test tests/frame_rate_test.cpp src/frame_rate.cpp)
+    target_include_directories(n3_frame_rate_test PRIVATE src)
+    target_link_libraries(n3_frame_rate_test PRIVATE n3_recomp rex::runtime)
+    rexglue_apply_target_settings(n3_frame_rate_test)
+    add_test(NAME frame_rate_policy COMMAND n3_frame_rate_test)
 endif()

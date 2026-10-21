@@ -2,7 +2,8 @@
 param(
     [ValidateSet('Debug','Release','RelWithDebInfo')][string]$Configuration = 'RelWithDebInfo',
     [ValidateRange(320,7680)][int]$Width = 1280,
-    [ValidateRange(240,4320)][int]$Height = 720
+    [ValidateRange(240,4320)][int]$Height = 720,
+    [ValidateSet('Configured','Original','60')][string]$FrameRate = 'Configured'
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -17,6 +18,8 @@ try {
     $info.WorkingDirectory = $root
     $info.UseShellExecute = $false
     $info.CreateNoWindow = $true
+    if ($FrameRate -eq '60') { $info.ArgumentList.Add('--n3_60fps') }
+    elseif ($FrameRate -eq 'Original') { $info.ArgumentList.Add('--no-n3_60fps') }
     foreach ($argument in @('--no-fullscreen', '--window_width', "$Width", '--window_height', "$Height",
         '--game_data_root', (Join-Path $root 'private/game'), '--user_data_root', (Join-Path $root 'private/user'),
         '--cache_root', (Join-Path $root 'private/cache'), '--log_file', (Join-Path $root 'logs/runtime-windowed.log'))) {
