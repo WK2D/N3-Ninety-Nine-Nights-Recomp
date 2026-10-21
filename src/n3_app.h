@@ -30,7 +30,7 @@ class N3App : public rex::ReXApp {
       REXCVAR_SET(window_height, 720);
   }
 
-  void OnPostInitLogging() override { InstallCrashDiagnostics(); }
+  void OnPostInitLogging() override { InstallCrashDiagnostics(game_profile_ / "logs"); }
 
   void OnPostLoadXexImage() override { InstallRuntimeFixes(*runtime()); }
 

@@ -6,8 +6,8 @@ PowerPC game code is translated to C++ ahead of time. ReXGlue supplies the Xbox
 runtime and its Xenos GPU plugin uses Direct3D 12.
 
 **First Windows alpha:** the opening mission has been completed, the following
-cutscene played, and a save written successfully. Full-game coverage and loading
-saves across restarts remain unvalidated. See [development status](docs/STATUS.md).
+cutscene played, and saving and loading progress work on the tested opening route.
+Full-game coverage remains unvalidated. See [development status](docs/STATUS.md).
 
 No game assets, original executable, generated game translations, or downloaded
 toolchain binaries are tracked. Supply your own game data. The supported executable
@@ -89,12 +89,16 @@ pwsh -NoProfile -File tools/smoke.ps1 -Seconds 30
 pwsh -NoProfile -File tools/symbolize-fault.ps1
 ```
 
-The build runs callback floating-point, disc importer, and game-path regression
-tests. Smoke tests stop
+The build runs callback floating-point, disc importer, game-path, and crash-report
+regression tests. Smoke tests stop
 their own child process at the deadline and record the result under `logs/`;
 survival alone does not establish correct rendering or gameplay. Smoke runs use
 the same local profile as the launcher, so use separate profile copies for future
 save regression testing.
+
+FP fault reports live in the active profile's `logs/` folder and contain module
+basenames and offsets. The symbolizer defaults to the local RelWithDebInfo build;
+pass `-Executable` when resolving a report against a different binary/PDB.
 
 Analysis hints belong in `n3_manifest.toml`, and runtime fixes belong in `src/`.
 Do not hand-edit generated translations. `generated/rexglue.cmake` is SDK build

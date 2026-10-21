@@ -1,7 +1,8 @@
 # Development status
 
 Recorded 21 October 2026. The opening mission, following cutscene, and writing a
-save have been exercised successfully. Full-game coverage remains unvalidated.
+save have been exercised successfully. Loading saved progress also succeeds on
+the tested opening route. Full-game coverage remains unvalidated.
 
 ## Verified
 
@@ -12,13 +13,14 @@ save have been exercised successfully. Full-game coverage remains unvalidated.
 - Generated 13,762 function assignments across 87 translated C++ source files.
 - Windows x64 Release and RelWithDebInfo compile and link succeed with Clang 20.1.8.
 - Runtime initializes Direct3D 12, input, audio, and XEX imports.
-- Five JavaScript extractor tests and three native regression suites pass.
+- Five JavaScript extractor tests and four native regression suites pass.
 - A 30-second boot test survived until the harness stopped it, without the prior
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
 - Main menu and character selection reached, followed by the opening cutscene.
 - Replay progresses past the previous opening-cutscene crash and reaches gameplay.
 - Opening mission completed, the next cutscene played, and a save written.
+- Saved progress loads successfully on the tested opening route.
 - Desktop shortcut follows the stable launcher, using a 1280 x 720 window.
 - The packaged Release binary initializes GPU, audio, input, and guest execution
   from a remembered game path and survives a 58-second isolated startup run.
@@ -45,9 +47,22 @@ callback wrapper initializes the host mask policy while preserving the guest's
 rounding and flush bits, then calls the original generated callback. The next
 30-second boot survived, and the windowed visual check reached intro/title.
 
-Windows FP fault diagnostics write module offsets and a stack to
-`logs/floating-point-fault.txt`; `tools/symbolize-fault.ps1` resolves executable
-frames against the locally built PDB.
+Windows FP fault diagnostics write module offsets and a stack under the active
+profile's `logs/floating-point-fault.txt`: `private/user/logs/` for the development
+launcher or `%LOCALAPPDATA%\N3Recompiled\logs` for default release profiles.
+Stack frames record module basenames rather than absolute installation paths.
+`tools/symbolize-fault.ps1` resolves executable frames against the local build/PDB,
+supports `-Executable` for another build, and accepts older reports with full
+module paths. Diagnostics installation failure does not prevent startup.
+
+The diagnostics regression raises a synthetic FP exception in an isolated
+process, verifies report location and path omission, and confirms that the
+exception continues to the next handler with its original context. This is
+diagnostics coverage, not evidence of an additional gameplay fault.
+The same probes pass on a thread with a 64 KiB stack. Large diagnostic scratch
+buffers use serialized static storage so exception entry does not exhaust small
+runtime thread stacks. The updated development build passes a 30-second startup
+check using a separate profile/cache; the harness stops only its test child.
 
 ## Opening cutscene
 
@@ -80,7 +95,7 @@ have native automated coverage.
 
 1. Repeat the opening route on the packaged Release build and other PCs.
 2. Exercise later missions, characters, rendering effects, and large enemy counts.
-3. Verify save/load in a disposable profile, then repeat across restarts.
+3. Extend save/load coverage across later missions, repeated restarts, and profiles.
 4. Compare scenes and timing against console or emulator reference captures.
 5. Investigate additional indirect targets or translation problems from logs.
 
