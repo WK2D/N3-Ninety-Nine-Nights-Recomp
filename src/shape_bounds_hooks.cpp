@@ -1,16 +1,21 @@
 #include "native/shape_bounds.h"
 #include "guest_native_support.h"
+#include "guest_memory_address.h"
 #include <rex/ppc.h>
 #include <rex/memory/utils.h>
 #include <bit>
 #include <cstdint>
+
+#ifdef N3_SHAPE_BOUNDS_TEST
+extern thread_local bool n3_shape_bounds_native_used;
+#endif
 
 namespace {
 using namespace n3::native;
 
 class ShapeView {
  public:
-  ShapeView(uint8_t* base, uint32_t address) : memory_(base + address) {}
+  ShapeView(uint8_t* base, uint32_t address) : memory_(n3::guest::GuestHostAddress(base, address)) {}
   float Scalar(uint32_t offset) const {
     return std::bit_cast<float>(rex::memory::load_and_swap<uint32_t>(memory_ + offset));
   }
@@ -32,11 +37,20 @@ bool SeparateOutput(PPCContext& ctx, uint32_t output_size) {
   // Native expressions may evaluate independent components in a different
   // order. If exceptions can trap, preserve the original partial-write order.
   if (!n3::guest::ScalarExceptionsMasked(ctx)) return false;
+  using Platform = rex::platform::FPSCRPlatform;
+  // With guest flush already clear, the original disableFlushMode leaves the
+  // host word untouched. Keep this divergent control state on the retained path.
+  if (!(ctx.fpscr.csr & Platform::FlushMask) && (Platform::getcsr() & Platform::FlushMask)) return false;
   // The verified source fields are within the first 304 bytes. Conservative
   // alias rejection preserves the original instruction-level read/write order.
-  const uint64_t source = ctx.r3.u32, output = ctx.r4.u32;
-  return source + 304 <= 0x100000000ull && output + output_size <= 0x100000000ull &&
-      (output + output_size <= source || source + 304 <= output);
+  const auto source = ctx.r3.u32, output = ctx.r4.u32;
+  return n3::guest::FitsLinearGuestRange(source, 304) && n3::guest::FitsLinearGuestRange(output, output_size) &&
+      n3::guest::DisjointGuestHostRanges(source, 304, output, output_size);
+}
+void NativeUsed() {
+#ifdef N3_SHAPE_BOUNDS_TEST
+  n3_shape_bounds_native_used = true;
+#endif
 }
 }
 
@@ -50,6 +64,7 @@ extern "C" void sub_8235FB80(PPCContext& ctx, uint8_t* base) {
     return __imp__sub_8235FB80(ctx, base);
   ctx.fpscr.disableFlushMode();
   ShapeView(base, ctx.r4.u32).Bounds(SphereBounds(center, radius));
+  NativeUsed();
 }
 
 extern "C" void __imp__sub_8235FBE8(PPCContext&, uint8_t*);
@@ -59,6 +74,7 @@ extern "C" void sub_8235FBE8(PPCContext& ctx, uint8_t* base) {
   if (!SupportsShapeValue(radius)) return __imp__sub_8235FBE8(ctx, base);
   ctx.fpscr.disableFlushMode();
   ShapeView(base, ctx.r4.u32).Bounds(SphereLocalBounds(radius));
+  NativeUsed();
 }
 
 extern "C" void __imp__sub_82366970(PPCContext&, uint8_t*);
@@ -70,6 +86,7 @@ extern "C" void sub_82366970(PPCContext& ctx, uint8_t* base) {
     return __imp__sub_82366970(ctx, base);
   ctx.fpscr.disableFlushMode();
   ShapeView(base, ctx.r4.u32).Bounds(CapsuleLocalBounds(radius, half_height));
+  NativeUsed();
 }
 
 extern "C" void __imp__sub_82360478(PPCContext&, uint8_t*);
@@ -79,6 +96,7 @@ extern "C" void sub_82360478(PPCContext& ctx, uint8_t* base) {
   if (!SupportsShapeValue(extents)) return __imp__sub_82360478(ctx, base);
   ctx.fpscr.disableFlushMode();
   ShapeView(base, ctx.r4.u32).Bounds(BoxLocalBounds(extents));
+  NativeUsed();
 }
 
 extern "C" void __imp__sub_82366918(PPCContext&, uint8_t*);
@@ -93,4 +111,5 @@ extern "C" void sub_82366918(PPCContext& ctx, uint8_t* base) {
   const auto envelope = CapsuleSphereEnvelope(center, radius, half_height);
   const ShapeView output(base, ctx.r4.u32);
   output.Vector(0, envelope.center); output.Scalar(12, envelope.radius);
+  NativeUsed();
 }

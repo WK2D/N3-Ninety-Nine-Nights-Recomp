@@ -1,13 +1,15 @@
 #pragma once
 #include "native/frame_clock.h"
+#include "guest_memory_address.h"
 #include <rex/memory/utils.h>
 
 namespace n3::guest {
 // Verified layout for executable 0.0.0.3, clock initializer 0x82248D38.
-// This view does not own guest memory. Call it on the game's clock thread.
+// This view does not own guest memory. Call it on the game's clock thread,
+// after validating the complete 48-byte span with FitsLinearGuestRange.
 class FrameClockView {
  public:
-  FrameClockView(uint8_t* base, uint32_t address) : memory_(base + address) {}
+  FrameClockView(uint8_t* base, uint32_t address) : memory_(GuestHostAddress(base, address)) {}
 
   native::FrameClock Read() const {
     return {Load<uint32_t>(4), Load<uint32_t>(8), Load<uint64_t>(16),

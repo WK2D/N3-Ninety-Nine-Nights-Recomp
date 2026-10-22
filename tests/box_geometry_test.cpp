@@ -6,6 +6,9 @@
 #include <iostream>
 #include <random>
 #include <stdexcept>
+#include "geometry_physical_test.h"
+
+thread_local bool n3_box_geometry_native_used = false;
 
 extern "C" void sub_823602C0(PPCContext&, uint8_t*);
 extern "C" void __imp__sub_823602C0(PPCContext&, uint8_t*);
@@ -135,6 +138,12 @@ int main() {
         }
       }
     }
+    uint32_t physical = 0, physical_native = 0;
+    for (const auto& entry : entries)
+      n3::test::CheckGeometryPhysical(entry.native, entry.original,
+          entry.corner ? n3::test::GeometryKind::Sample : n3::test::GeometryKind::Bounds,
+          n3_box_geometry_native_used, physical, physical_native);
+    std::cout << physical << " physical box cases (" << physical_native << " native) passed\n";
     Platform::setcsr(saved);
     std::cout << comparisons << " box equivalence cases, transforms, integer coordinates, aliases, FP controls and registrations passed\n";
   } catch (const std::exception& error) {

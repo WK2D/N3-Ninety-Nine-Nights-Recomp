@@ -1,8 +1,12 @@
 #include "native/feedback_delay.h"
 #include "guest_native_support.h"
+#include "guest_memory_address.h"
 #include <rex/memory/utils.h>
 #include <array>
 #include <bit>
+#ifdef N3_FEEDBACK_DELAY_TEST
+extern thread_local bool n3_feedback_delay_native_used;
+#endif
 
 extern "C" void __imp__sub_8253C310(PPCContext&, uint8_t*);
 extern "C" void __imp__sub_8253BFA8(PPCContext&, uint8_t*);
@@ -10,11 +14,11 @@ extern "C" void __imp__sub_8253C480(PPCContext&, uint8_t*);
 extern "C" void __imp__sub_8253C5F0(PPCContext&, uint8_t*);
 namespace {
 uint32_t ReadWord(uint8_t* base, uint32_t address) {
-  return rex::memory::load_and_swap<uint32_t>(base + address);
+  return rex::memory::load_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, address));
 }
 float Read(uint8_t* base, uint32_t address) { return std::bit_cast<float>(ReadWord(base, address)); }
 void WriteWord(uint8_t* base, uint32_t address, uint32_t value) {
-  rex::memory::store_and_swap<uint32_t>(base + address, value);
+  rex::memory::store_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, address), value);
 }
 void Write(uint8_t* base, uint32_t address, float value) { WriteWord(base, address, std::bit_cast<uint32_t>(value)); }
 template<size_t HistorySize> struct Workspace {
@@ -26,9 +30,10 @@ template<size_t HistorySize> bool Process(PPCContext& ctx, uint8_t* base) {
   using namespace n3::guest;
   const auto source = ctx.r3.u32, buffer = ctx.r4.u32, stack = ctx.r1.u32;
   constexpr uint32_t object_size = 24 + HistorySize * 4;
-  if (!ScalarExceptionsMasked(ctx) || !FitsGuestRange(source, object_size) || !FitsGuestRange(buffer, 1028) ||
-      !DisjointGuestRanges(source, object_size, buffer, 1028) || stack < 32 ||
-      !DisjointGuestRanges(source, object_size, stack - 32, 32) || !DisjointGuestRanges(buffer, 1028, stack - 32, 32)) return false;
+  if (!ScalarExceptionsMasked(ctx) || !FitsLinearGuestRange(source, object_size) || !FitsLinearGuestRange(buffer, 1028) ||
+      stack < 32 || !FitsLinearGuestRange(stack - 32, 32) ||
+      !DisjointGuestHostRanges(source, object_size, buffer, 1028) ||
+      !DisjointGuestHostRanges(source, object_size, stack - 32, 32) || !DisjointGuestHostRanges(buffer, 1028, stack - 32, 32)) return false;
   // This routine performs no callbacks. Per-thread adapter storage keeps its
   // guest snapshots off the runtime's small callback stacks.
   thread_local Workspace<HistorySize> workspace;
@@ -57,6 +62,9 @@ template<size_t HistorySize> bool Process(PPCContext& ctx, uint8_t* base) {
     ctx.xer.ca = workspace.state.delay <= 2;
   }
   ctx.cr6.compare<uint32_t>(0, 0, ctx.xer);
+#ifdef N3_FEEDBACK_DELAY_TEST
+  n3_feedback_delay_native_used = true;
+#endif
   return true;
 }
 bool ProcessSeparate(PPCContext& ctx, uint8_t* base) {
@@ -65,10 +73,10 @@ bool ProcessSeparate(PPCContext& ctx, uint8_t* base) {
   if (!ScalarExceptionsMasked(ctx) || stack < 40) return false;
   struct Range { uint32_t start, size; };
   const std::array<Range, 4> ranges{{{source, 2072}, {input, 1028}, {output, 1024}, {stack - 40, 40}}};
-  for (auto range : ranges) if (!FitsGuestRange(range.start, range.size)) return false;
+  for (auto range : ranges) if (!FitsLinearGuestRange(range.start, range.size)) return false;
   for (size_t a = 0; a < ranges.size(); ++a)
     for (size_t b = a + 1; b < ranges.size(); ++b)
-      if (!DisjointGuestRanges(ranges[a].start, ranges[a].size, ranges[b].start, ranges[b].size)) return false;
+      if (!DisjointGuestHostRanges(ranges[a].start, ranges[a].size, ranges[b].start, ranges[b].size)) return false;
   struct SeparateWorkspace {
     n3::native::FeedbackDelayState state;
     std::array<float, 512> history;
@@ -100,6 +108,9 @@ bool ProcessSeparate(PPCContext& ctx, uint8_t* base) {
   WriteWord(base, source + 16, workspace.state.cursor);
   ctx.r4.u64 += 1024; ctx.r5.u64 = workspace.state.cursor;
   ctx.cr6.compare<uint32_t>(0, 0, ctx.xer);
+#ifdef N3_FEEDBACK_DELAY_TEST
+  n3_feedback_delay_native_used = true;
+#endif
   return true;
 }
 }

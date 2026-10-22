@@ -3,16 +3,21 @@
 #include "native/bit_window.h"
 #include "native/vector_ops.h"
 #include "guest_native_support.h"
+#include "guest_memory_address.h"
 #include <rex/memory/utils.h>
 #include <bit>
+
+#ifdef N3_ENGINE_PRIMITIVES_TEST
+extern thread_local bool n3_engine_primitives_native_used;
+#endif
 
 namespace {
 using namespace n3::native;
 uint32_t Read(uint8_t* base, uint32_t address) {
-  return rex::memory::load_and_swap<uint32_t>(base + address);
+  return rex::memory::load_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, address));
 }
 void Write(uint8_t* base, uint32_t address, uint32_t value) {
-  rex::memory::store_and_swap<uint32_t>(base + address, value);
+  rex::memory::store_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, address), value);
 }
 Vec3 Read3(uint8_t* base, uint32_t address) {
   return {std::bit_cast<float>(Read(base, address)), std::bit_cast<float>(Read(base, address + 4)),
@@ -41,13 +46,22 @@ extern "C" void sub_824E7AD0(PPCContext& ctx, uint8_t* base) {
 extern "C" void __imp__sub_820801B0(PPCContext&, uint8_t*);
 extern "C" void sub_820801B0(PPCContext& ctx, uint8_t* base) {
   const auto object = ctx.r3.u32;
-  if (!n3::guest::FitsGuestRange(object, 228)) return __imp__sub_820801B0(ctx, base);
+  if (!n3::guest::FitsLinearGuestRange(object, 228)) return __imp__sub_820801B0(ctx, base);
   const auto id = Read(base, object + 208);
   ctx.cr6.compare<int32_t>(std::bit_cast<int32_t>(id), -1, ctx.xer);
-  if (id == 0xffffffffu) return;
+  if (id == 0xffffffffu) {
+#ifdef N3_ENGINE_PRIMITIVES_TEST
+    n3_engine_primitives_native_used = true;
+#endif
+    return;
+  }
   FrameCountdown state{id, Read(base, object + 224), Read(base, object + 220), Read(base, object + 216)};
   if (CountdownNeedsProgress(state)) {
-    if (!n3::guest::ScalarExceptionsMasked(ctx)) return __imp__sub_820801B0(ctx, base);
+    const auto stack = ctx.r1.u32;
+    if (!n3::guest::ScalarExceptionsMasked(ctx) || stack < 16 ||
+        !n3::guest::FitsLinearGuestRange(stack - 16, 16) ||
+        !n3::guest::DisjointGuestHostRanges(object, 228, stack - 16, 16))
+      return __imp__sub_820801B0(ctx, base);
     ctx.fpscr.disableFlushMode();
   }
   const auto previous = state.frames_remaining;
@@ -57,6 +71,9 @@ extern "C" void sub_820801B0(PPCContext& ctx, uint8_t* base) {
   Write(base, object + 224, state.frames_remaining);
   if (outcome == CountdownOutcome::Expired) Write(base, object + 208, state.active_id);
   else Write(base, object + 216, state.progress_bits);
+#ifdef N3_ENGINE_PRIMITIVES_TEST
+  n3_engine_primitives_native_used = true;
+#endif
 }
 
 extern "C" void __imp__sub_8246D5F8(PPCContext&, uint8_t*);
@@ -65,17 +82,22 @@ extern "C" void sub_8246D5F8(PPCContext& ctx, uint8_t* base) {
   if (!position || !width || width > 32 || ((position - 1) & 7) + width > 32)
     return __imp__sub_8246D5F8(ctx, base);
   const uint64_t window = uint64_t(ctx.r3.u32) + ((position - 1) >> 3);
-  if (window + 4 > 0x100000000ull) return __imp__sub_8246D5F8(ctx, base);
-  const auto value = ReadBitWindow(std::span<const uint8_t, 4>(base + window, 4), (position - 1) & 7, width);
+  if (window > 0xffffffffull || !n3::guest::FitsLinearGuestRange(uint32_t(window), 4))
+    return __imp__sub_8246D5F8(ctx, base);
+  const auto value = ReadBitWindow(std::span<const uint8_t, 4>(n3::guest::GuestHostAddress(base, uint32_t(window)), 4),
+      (position - 1) & 7, width);
   ctx.r3.u64 = *value;
   ctx.xer.ca = true;
+#ifdef N3_ENGINE_PRIMITIVES_TEST
+  n3_engine_primitives_native_used = true;
+#endif
 }
 
 extern "C" void __imp__sub_82324CD0(PPCContext&, uint8_t*);
 extern "C" void sub_82324CD0(PPCContext& ctx, uint8_t* base) {
   const auto object = ctx.r3.u32, input = ctx.r5.u32;
-  if (!n3::guest::FitsGuestRange(object, 356) || !n3::guest::FitsGuestRange(input, 12) ||
-      !n3::guest::DisjointGuestRanges(object, 356, input, 12) || !n3::guest::ScalarExceptionsMasked(ctx))
+  if (!n3::guest::FitsLinearGuestRange(object, 356) || !n3::guest::FitsLinearGuestRange(input, 12) ||
+      !n3::guest::DisjointGuestHostRanges(object, 356, input, 12) || !n3::guest::ScalarExceptionsMasked(ctx))
     return __imp__sub_82324CD0(ctx, base);
   const auto saved_host = rex::platform::FPSCRPlatform::getcsr();
   const auto saved_guest = ctx.fpscr.csr;
@@ -89,4 +111,7 @@ extern "C" void sub_82324CD0(PPCContext& ctx, uint8_t* base) {
   Write(base, object + 344, std::bit_cast<uint32_t>(result.x));
   Write(base, object + 348, std::bit_cast<uint32_t>(result.y));
   Write(base, object + 352, std::bit_cast<uint32_t>(result.z));
+#ifdef N3_ENGINE_PRIMITIVES_TEST
+  n3_engine_primitives_native_used = true;
+#endif
 }

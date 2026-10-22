@@ -5,6 +5,9 @@
 #include <iostream>
 #include <random>
 #include <stdexcept>
+#include "geometry_physical_test.h"
+
+thread_local bool n3_shape_projection_native_used = false;
 
 extern "C" void sub_82366808(PPCContext&, uint8_t*);
 extern "C" void __imp__sub_82366808(PPCContext&, uint8_t*);
@@ -126,6 +129,12 @@ int main() {
         }
       }
     }
+    uint32_t physical = 0, physical_native = 0;
+    for (const auto& entry : entries)
+      n3::test::CheckGeometryPhysical(entry.native, entry.original,
+          entry.capsule ? n3::test::GeometryKind::Capsule : n3::test::GeometryKind::Sphere,
+          n3_shape_projection_native_used, physical, physical_native);
+    std::cout << physical << " physical projection cases (" << physical_native << " native) passed\n";
     Platform::setcsr(saved);
     std::cout << comparisons << " shape projection equivalence cases, aliases, FP results/controls and registrations passed\n";
   } catch (const std::exception& error) {

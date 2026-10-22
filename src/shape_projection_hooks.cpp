@@ -1,18 +1,23 @@
 #include "native/shape_projection.h"
 #include "guest_native_support.h"
+#include "guest_memory_address.h"
 #include <rex/memory/utils.h>
 #include <bit>
+
+#ifdef N3_SHAPE_PROJECTION_TEST
+extern thread_local bool n3_shape_projection_native_used;
+#endif
 
 namespace {
 using namespace n3::native;
 float Read(uint8_t* base, uint32_t address) {
-  return std::bit_cast<float>(rex::memory::load_and_swap<uint32_t>(base + address));
+  return std::bit_cast<float>(rex::memory::load_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, address)));
 }
 Vec3 Read3(uint8_t* base, uint32_t address) {
   return {Read(base, address), Read(base, address + 4), Read(base, address + 8)};
 }
 void Write(uint8_t* base, uint32_t address, float value) {
-  rex::memory::store_and_swap<uint32_t>(base + address, std::bit_cast<uint32_t>(value));
+  rex::memory::store_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, address), std::bit_cast<uint32_t>(value));
 }
 void Write3(uint8_t* base, uint32_t address, Vec3 value) {
   Write(base, address, value.x); Write(base, address + 4, value.y); Write(base, address + 8, value.z);
@@ -20,10 +25,18 @@ void Write3(uint8_t* base, uint32_t address, Vec3 value) {
 bool Eligible(const PPCContext& ctx, uint32_t size, uint32_t scratch) {
   using namespace n3::guest;
   const auto source = ctx.r3.u32, output = ctx.r4.u32, stack = ctx.r1.u32;
-  return ScalarExceptionsMasked(ctx) && FitsGuestRange(source, 304) && FitsGuestRange(output, size) &&
-      DisjointGuestRanges(source, 304, output, size) && (!scratch ||
-      (stack >= scratch && DisjointGuestRanges(source, 304, stack - scratch, scratch) &&
-       DisjointGuestRanges(output, size, stack - scratch, scratch)));
+  using Platform = rex::platform::FPSCRPlatform;
+  if (!(ctx.fpscr.csr & Platform::FlushMask) && (Platform::getcsr() & Platform::FlushMask)) return false;
+  return ScalarExceptionsMasked(ctx) && FitsLinearGuestRange(source, 304) && FitsLinearGuestRange(output, size) &&
+      DisjointGuestHostRanges(source, 304, output, size) && (!scratch ||
+      (stack >= scratch && FitsLinearGuestRange(stack - scratch, scratch) &&
+       DisjointGuestHostRanges(source, 304, stack - scratch, scratch) &&
+       DisjointGuestHostRanges(output, size, stack - scratch, scratch)));
+}
+void NativeUsed() {
+#ifdef N3_SHAPE_PROJECTION_TEST
+  n3_shape_projection_native_used = true;
+#endif
 }
 }
 extern "C" void __imp__sub_82366808(PPCContext&, uint8_t*);
@@ -40,6 +53,7 @@ extern "C" void sub_82366808(PPCContext& ctx, uint8_t* base) {
   Write3(base, ctx.r4.u32 + 12, projection.bounds.maximum);
   ctx.f1.f64 = double(projection.negative_endpoint.minimum.x);
   ctx.cr6.compare(double(projection.negative_endpoint.maximum.z), double(projection.positive_endpoint.maximum.z));
+  NativeUsed();
 }
 extern "C" void __imp__sub_823603B0(PPCContext&, uint8_t*);
 extern "C" void sub_823603B0(PPCContext& ctx, uint8_t* base) {
@@ -51,4 +65,6 @@ extern "C" void sub_823603B0(PPCContext& ctx, uint8_t* base) {
   Write3(base, ctx.r4.u32, center);
   Write(base, ctx.r4.u32 + 12, static_cast<float>(radius));
   ctx.f1.f64 = radius;
+  ctx.lr = uint32_t(ctx.lr);
+  NativeUsed();
 }

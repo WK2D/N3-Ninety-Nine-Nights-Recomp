@@ -21,7 +21,7 @@ is identified in [game-build.json](docs/game-build.json).
 
 ## Play the Windows alpha
 
-**[Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.9/N3-Recompiled-v0.1.0-alpha.9-windows-x64.zip)**
+**[Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.10/N3-Recompiled-v0.1.0-alpha.10-windows-x64.zip)**
 
 Extract the whole ZIP and run **n3.exe**. Select an ISO made from your own
 disc, or `default.xex` in your own extracted game folder with `data/` beside it.
@@ -38,14 +38,16 @@ folder when updating; replace the application folder with the new release.
 An existing extracted game folder is linked in place. The package contains
 no game assets or original executable. See the [release guide](docs/RELEASE-README.txt).
 
-[Release notes, checksums, and optional developer sources](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/tag/v0.1.0-alpha.9)
+[Release notes, checksums, and optional developer sources](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/tag/v0.1.0-alpha.10)
 are available separately. Only the Windows ZIP is needed to play.
 
-Alpha 9 retains 45 typed native C++ entry points and fixes physical-memory
-addressing in thirteen connected state adapters. Table values, percentage updates,
-capped accounting and handle/payload operations now share the direction adapters'
-mapped address handling. Tests compare supported behavior against the retained
-translations. Filtering uses numeric 1x/2x/4x/8x/16x choices. Windows still uses
+Alpha 10 retains 45 typed native C++ entry points and extends physical-memory
+addressing to the remaining 27 memory-backed adapters: geometry, vectors,
+primitives, audio and the frame clock. All 43 memory-backed typed entries now
+have mapped-address checks and high-address fixtures; the other two use only
+scalar registers. Countdown stack aliases and three saved-LR results also match
+the retained translations. Full game-code conversion remains in progress.
+Filtering uses numeric 1x/2x/4x/8x/16x choices. Windows still uses
 Direct3D 12. This engine work does not claim a speedup or fix higher-FPS animation timing.
 
 The emerald N3 icon is embedded in `n3.exe` and appears on the application window

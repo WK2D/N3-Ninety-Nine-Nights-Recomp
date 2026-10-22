@@ -11,6 +11,10 @@
 #include <charconv>
 #include <rex/chrono/clock.h>
 
+#ifdef N3_FRAME_RATE_TEST
+extern thread_local bool n3_frame_rate_native_used;
+#endif
+
 REXCVAR_DEFINE_BOOL(n3_60fps, false, "N3/Graphics",
     "Compatibility alias for the previous 60 FPS setting").debug_only();
 REXCVAR_DEFINE_UINT32(n3_frame_rate, 30, "N3/Graphics", "Frame rate")
@@ -25,10 +29,10 @@ uint32_t frame_clock = 0;
 uint32_t native_fps = 40;
 uint32_t native_step = n3::frames::StepSecondsBits(40);
 uint32_t Read32(uint8_t* base, uint32_t address) {
-  return rex::memory::load_and_swap<uint32_t>(base + address);
+  return rex::memory::load_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, address));
 }
 void Write32(uint8_t* base, uint32_t address, uint32_t value) {
-  rex::memory::store_and_swap<uint32_t>(base + address, value);
+  rex::memory::store_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, address), value);
 }
 void TracePresent() {
   if (!REXCVAR_GET(frame_pacing_trace)) return;
@@ -69,6 +73,13 @@ void PacePresent() {
 extern "C" void __imp__sub_82248D38(PPCContext& ctx, uint8_t* base);
 extern "C" void sub_82248D38(PPCContext& ctx, uint8_t* base) {
   const auto clock = ctx.r3.u32;
+  // The initializer reserves 112 bytes and its frequency helper another 96.
+  // Preserve all prologue aliases before reading a clock snapshot.
+  const auto stack = ctx.r1.u32;
+  if (!n3::guest::FitsLinearGuestRange(clock, 48) || stack < 208 ||
+      !n3::guest::FitsLinearGuestRange(stack - 208, 208) ||
+      !n3::guest::DisjointGuestHostRanges(clock, 48, stack - 208, 208))
+    return __imp__sub_82248D38(ctx, base);
   const n3::guest::FrameClockView view(base, clock);
   auto state = view.Read();
   const auto original = state.frames_per_second;
@@ -94,6 +105,10 @@ extern "C" void sub_82248D38(PPCContext& ctx, uint8_t* base) {
       // The original's final timebase helper returns success in r3. Other
       // caller-saved registers are unspecified; nonvolatile state is untouched.
       ctx.r3.u64 = 1;
+      ctx.lr = uint32_t(ctx.lr);
+#ifdef N3_FRAME_RATE_TEST
+      n3_frame_rate_native_used = true;
+#endif
       return;
     }
   }
@@ -104,6 +119,8 @@ extern "C" void sub_82248D38(PPCContext& ctx, uint8_t* base) {
 extern "C" void __imp__sub_823AA3B0(PPCContext& ctx, uint8_t* base);
 extern "C" void sub_823AA3B0(PPCContext& ctx, uint8_t* base) {
   const auto address = ctx.r3.u32 + n3::frames::kPresentIntervalOffset;
+  if (!n3::guest::FitsLinearGuestRange(address, 4))
+    return __imp__sub_823AA3B0(ctx, base);
   const auto original = Read32(base, address);
   const auto interval = n3::frames::PresentInterval(original, ConfiguredFrameRate());
   if (interval != original) Write32(base, address, interval);
@@ -152,7 +169,8 @@ void ApplyFrameRateAtBoundary(uint8_t* base) {
   if (parsed.ec == std::errc{} && parsed.ptr == value.data() + value.size() &&
       (!configured || n3::frames::SupportsClock(configured))) requested_fps.store(configured);
   const auto target = requested_fps.load();
-  if (!frame_clock || target == active_fps.load()) return;
+  if (!frame_clock || target == active_fps.load() ||
+      !n3::guest::FitsLinearGuestRange(frame_clock, 48)) return;
   const auto fps = target ? target : native_fps;
   const n3::guest::FrameClockView view(base, frame_clock);
   auto state = view.Read();

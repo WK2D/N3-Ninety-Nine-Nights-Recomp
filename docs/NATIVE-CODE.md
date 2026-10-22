@@ -886,9 +886,39 @@ retained calls compare it too. Contracted return/register results remain checked
 the expanded handle, payload, relation and accounting fixtures also seed and
 compare preserved VMX registers and every condition field.
 
-Twenty-seven older memory-backed typed entries still require mapped accesses,
-alias/range guards and high-address fixtures. Their earlier comparisons establish
-virtual-address behavior only; this remains part of the conversion work.
+The other twenty-seven memory-backed typed entries now use the same mapped
+address policy: five shape bounds, four box/projection operations, seven vector
+updates, three memory primitives, seven audio kernels and the clock initializer.
+Their earlier virtual-address loops remain unchanged. Separate sparse fixtures
+add 14,536 comparisons: 8,680 native and 5,856 retained. These include host offsets
+above 4 GiB, unaligned and exact-tail spans, individually high objects/buffers/SP,
+boundary/wrap fallback, physical overlaps and unbiased-memory canaries. All 43
+memory-backed typed entries now have physical fixtures; two scalar-only entries
+do not access memory. This is coverage of the existing typed subset, not a full
+game conversion or proof for every possible guest layout.
+
+| Additional physical suite | Calls | Native | Retained |
+| --- | ---: | ---: | ---: |
+| Clock initialization | 4,608 | 2,448 | 2,160 |
+| Shape bounds | 3,200 | 2,000 | 1,200 |
+| Vector operations | 1,792 | 1,280 | 512 |
+| Memory primitives | 768 | 520 | 248 |
+| Transformed boxes | 768 | 424 | 344 |
+| Shape projections | 768 | 448 | 320 |
+| Delay blocks | 1,128 | 672 | 456 |
+| Feedback blocks | 1,504 | 888 | 616 |
+
+The clock adds 51 cached live-rate changes with suspended enable flags preserved.
+Only its nondeterministic timestamp is normalized on retained calls; native calls
+also normalize the unchanged 208-byte nested scratch. Geometry/audio normalize
+only proven untouched native scratch under their existing contracts. Retained
+geometry/audio/primitive calls compare every byte. Expanded tests seed preserved
+VMX and every condition field alongside the contracted scalar/FP results.
+Geometry keeps guest-flush-off/host-flush-on control divergence on the retained
+path. Countdown progress rejects scratch aliases before publishing its update;
+inactive and expired branches do not require unused stack storage. Clock, box
+sample and box-sphere results now zero-extend restored LR exactly as the original
+32-bit saved-LR load does. Portable math APIs and typed-entry counts are unchanged.
 
 Both Windows configurations pass forty suites. A 24-second isolated
 Direct3D Release startup reaches menu installation and frame pacing without

@@ -68,11 +68,14 @@ milestones. Passing those checks does not establish full-game compatibility,
 performance gains or a playable build on another operating system.
 
 The direction work also exposed the pinned runtime's physical-memory shadow
-bias. Sixteen adapters now implement and test that address range: the three
-direction entries and thirteen connected handle, payload, table-value and
-accounting entries. Their nested adapters share one mapping, validate ranges
-before pointer traversal and compare aliases using mapped host offsets.
-Twenty-seven older memory-backed entries still need this migration and physical
-fixtures: geometry/vectors/primitives, audio buffers and the cached clock view.
-Their current comparisons cover virtual addresses. The two scalar-only entries
-have no guest-memory access.
+bias. All 43 memory-backed typed entries now implement the mapped-address policy
+and have independent high-address fixtures. Geometry, vectors/primitives, audio
+buffers and the cached clock view join the direction and connected state adapters.
+Complete spans reject wrap and shadow-boundary crossings before dependent reads;
+aliases compare mapped host offsets. The countdown progress branch rejects its
+16-byte scratch aliases, and clock initialization checks the full 208-byte nested
+frame. Three native results now match the original low-32-bit LR restore.
+The two scalar-only entries have no guest-memory access. This finishes the audit
+of the existing typed subset; it does not convert the remaining translated game
+functions or eliminate supported-case fallbacks. Continue the caller/subsystem
+work above with the retained translations available as independent oracles.

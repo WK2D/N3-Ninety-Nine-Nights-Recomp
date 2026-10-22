@@ -1,7 +1,11 @@
 #include "native/delay_block.h"
 #include "guest_native_support.h"
+#include "guest_memory_address.h"
 #include <rex/memory/utils.h>
 #include <bit>
+#ifdef N3_DELAY_BLOCK_TEST
+extern thread_local bool n3_delay_block_native_used;
+#endif
 
 namespace {
 using namespace n3::native;
@@ -13,11 +17,11 @@ struct DelayWorkspace {
   std::array<float, kDelayBlockSamples + 1> mixed, auxiliary;
 };
 uint32_t ReadWord(uint8_t* base, uint32_t address) {
-  return rex::memory::load_and_swap<uint32_t>(base + address);
+  return rex::memory::load_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, address));
 }
 float Read(uint8_t* base, uint32_t address) { return std::bit_cast<float>(ReadWord(base, address)); }
 void WriteWord(uint8_t* base, uint32_t address, uint32_t value) {
-  rex::memory::store_and_swap<uint32_t>(base + address, value);
+  rex::memory::store_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, address), value);
 }
 void Write(uint8_t* base, uint32_t address, float value) { WriteWord(base, address, std::bit_cast<uint32_t>(value)); }
 bool Process(PPCContext& ctx, uint8_t* base, uint32_t history_size) {
@@ -26,10 +30,10 @@ bool Process(PPCContext& ctx, uint8_t* base, uint32_t history_size) {
   const std::array<Range, 5> ranges{{{ctx.r3.u32, 44 + history_size * 4},
       {ctx.r4.u32, kDelayBlockSamples * 4}, {ctx.r5.u32, (kDelayBlockSamples + 1) * 4},
       {ctx.r6.u32, (kDelayBlockSamples + 1) * 4}, {ctx.r1.u32 - 48, 48}}};
-  for (const auto range : ranges) if (!FitsGuestRange(range.start, range.size)) return false;
+  for (const auto range : ranges) if (!FitsLinearGuestRange(range.start, range.size)) return false;
   for (size_t first = 0; first < ranges.size(); ++first)
     for (size_t second = first + 1; second < ranges.size(); ++second)
-      if (!DisjointGuestRanges(ranges[first].start, ranges[first].size, ranges[second].start, ranges[second].size)) return false;
+      if (!DisjointGuestHostRanges(ranges[first].start, ranges[first].size, ranges[second].start, ranges[second].size)) return false;
   // No callbacks/reentrancy occur while processing. Per-thread storage avoids
   // placing the history/output snapshots on small runtime callback stacks.
   thread_local DelayWorkspace workspace;
@@ -63,6 +67,9 @@ bool Process(PPCContext& ctx, uint8_t* base, uint32_t history_size) {
   ctx.r4.u64 += kDelayBlockSamples * 4; ctx.r5.u64 += kDelayBlockSamples * 4; ctx.r6.u64 += kDelayBlockSamples * 4;
   ctx.r7.u64 = workspace.state.cursor;
   ctx.cr6.compare<uint32_t>(0, 0, ctx.xer);
+#ifdef N3_DELAY_BLOCK_TEST
+  n3_delay_block_native_used = true;
+#endif
   return true;
 }
 bool ProcessDual(PPCContext& ctx, uint8_t* base) {
@@ -70,10 +77,10 @@ bool ProcessDual(PPCContext& ctx, uint8_t* base) {
   if (!ScalarExceptionsMasked(ctx) || ctx.r1.u32 < 32) return false;
   const std::array<Range, 5> ranges{{{ctx.r3.u32, 4128}, {ctx.r4.u32, 1024},
       {ctx.r5.u32, 1028}, {ctx.r6.u32, 1028}, {ctx.r1.u32 - 32, 32}}};
-  for (const auto range : ranges) if (!FitsGuestRange(range.start, range.size)) return false;
+  for (const auto range : ranges) if (!FitsLinearGuestRange(range.start, range.size)) return false;
   for (size_t a = 0; a < ranges.size(); ++a)
     for (size_t b = a + 1; b < ranges.size(); ++b)
-      if (!DisjointGuestRanges(ranges[a].start, ranges[a].size, ranges[b].start, ranges[b].size)) return false;
+      if (!DisjointGuestHostRanges(ranges[a].start, ranges[a].size, ranges[b].start, ranges[b].size)) return false;
   struct Workspace {
     DualTapDelayState state;
     std::array<float, 1024> history;
@@ -103,6 +110,9 @@ bool ProcessDual(PPCContext& ctx, uint8_t* base) {
   ctx.r4.u64 += 1024; ctx.r5.u64 += 1024; ctx.r6.u64 += 1024;
   ctx.r7.u64 = cursor + 256; ctx.r9.u64 = workspace.state.cursor;
   ctx.cr6.compare<uint32_t>(0, 0, ctx.xer);
+#ifdef N3_DELAY_BLOCK_TEST
+  n3_delay_block_native_used = true;
+#endif
   return true;
 }
 }

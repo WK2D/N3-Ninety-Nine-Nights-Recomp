@@ -1,38 +1,46 @@
 #include "native/vector_ops.h"
 #include "native/shape_bounds.h"
 #include "guest_native_support.h"
+#include "guest_memory_address.h"
 #include <rex/memory/utils.h>
 #include <bit>
+
+#ifdef N3_VECTOR_OPS_TEST
+extern thread_local bool n3_vector_ops_native_used;
+#endif
 
 namespace {
 using namespace n3::native;
 float Read(uint8_t* base, uint32_t address) {
-  return std::bit_cast<float>(rex::memory::load_and_swap<uint32_t>(base + address));
+  return std::bit_cast<float>(rex::memory::load_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, address)));
 }
 Vec3 Read3(uint8_t* base, uint32_t address) {
   return {Read(base, address), Read(base, address + 4), Read(base, address + 8)};
 }
 void Write(uint8_t* base, uint32_t address, float value) {
-  rex::memory::store_and_swap<uint32_t>(base + address, std::bit_cast<uint32_t>(value));
+  rex::memory::store_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, address), std::bit_cast<uint32_t>(value));
 }
 void Write3(uint8_t* base, uint32_t address, Vec3 value) {
   Write(base, address, value.x); Write(base, address + 4, value.y); Write(base, address + 8, value.z);
 }
 bool Accumulate(PPCContext& ctx, uint8_t* base, uint32_t direction_offset) {
-  if (!n3::guest::FitsGuestRange(ctx.r3.u32, 576) || !n3::guest::ScalarExceptionsMasked(ctx) ||
+  if (!n3::guest::FitsLinearGuestRange(ctx.r3.u32, 576) || !n3::guest::ScalarExceptionsMasked(ctx) ||
       !SupportsVectorScalar(ctx.f1.f64)) return false;
   const auto direction = Read3(base, ctx.r3.u32 + direction_offset);
   const auto current = Read3(base, ctx.r3.u32 + 564);
   if (!SupportsShapeValue(direction) || !SupportsShapeValue(current)) return false;
   ctx.fpscr.disableFlushMode();
   Write3(base, ctx.r3.u32 + 564, AccumulateScaledVector(current, direction, ctx.f1.f64));
+#ifdef N3_VECTOR_OPS_TEST
+  n3_vector_ops_native_used = true;
+#endif
   return true;
 }
 bool SetChannel(PPCContext& ctx, uint8_t* base, uint32_t current_offset,
                 uint32_t cached_offset, bool four_components) {
   const uint32_t count = four_components ? 16 : 12;
-  if (!n3::guest::FitsGuestRange(ctx.r3.u32, 112) || !n3::guest::FitsGuestRange(ctx.r4.u32, count) ||
-      !n3::guest::DisjointGuestRanges(ctx.r3.u32, 112, ctx.r4.u32, count) ||
+  if (!n3::guest::FitsLinearGuestRange(ctx.r3.u32, 112) || !n3::guest::FitsLinearGuestRange(ctx.r4.u32, count) ||
+      !n3::guest::DisjointGuestHostRanges(ctx.r3.u32, 112, ctx.r4.u32, count) ||
       !n3::guest::ScalarExceptionsMasked(ctx)) return false;
   const auto vector = Read3(base, ctx.r4.u32);
   if (!SupportsShapeValue(vector)) return false;
@@ -54,6 +62,9 @@ bool SetChannel(PPCContext& ctx, uint8_t* base, uint32_t current_offset,
     Write3(base, ctx.r3.u32 + cached_offset, channel.cached);
     Write3(base, ctx.r3.u32 + current_offset, channel.current);
   }
+#ifdef N3_VECTOR_OPS_TEST
+  n3_vector_ops_native_used = true;
+#endif
   return true;
 }
 }

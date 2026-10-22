@@ -935,3 +935,37 @@ chunks. Game data, profiles, logs, PDBs and loose images remain excluded.
 The public prerelease has exactly the Windows ZIP, optional source ZIP and
 checksum list, with all uploaded SHA-256 digests verified. The broader conversion
 and remaining twenty-seven memory-backed adapter audits stay in progress.
+
+## Physical memory across the existing typed modules
+
+The other twenty-seven memory-backed adapters now use the pinned physical-shadow
+mapping: five bounds, four box/projection, seven vector updates, three memory
+primitives, seven audio kernels and the clock initializer. Full object, buffer
+and scratch spans reject wrap and shadow-boundary crossings before snapshots;
+aliases compare mapped host ranges. The cached clock view and presentation
+interval word also use mapped addresses. Clock initialization checks its full
+208-byte nested frame. Countdown progress rejects aliases with its 16-byte scratch
+before publishing state, while inactive/expired branches ignore unused stack.
+Clock, box-sample and box-sphere native results now match the original's
+zero-extended 32-bit saved-LR restoration. Geometry retains divergent guest-off/
+host-on flush controls; portable math APIs and entry counts are unchanged.
+
+Both Windows configurations pass forty suites. Existing virtual fixtures remain
+unchanged, with separate independent sparse physical passes adding 14,536 calls:
+8,680 native and 5,856 retained. Shape bounds add 3,200; vectors 1,792; memory
+primitives 768; transformed boxes 768; projections 768; delay blocks 1,128;
+feedback blocks 1,504; clock initialization 4,608 plus 51 cached live-rate changes.
+Coverage includes individually high objects/buffers/SP, unaligned fields,
+host offsets above 4 GiB, exact tails, shadow/wrap fallback, prologue aliases,
+history wrap, late audio rejection, all rounding/initial flush modes and
+preserved scalar/vector/condition/FP contracts. Independent setup mapping,
+whole committed-region comparisons and unbiased canaries detect wrong addresses.
+Only proven untouched native scratch is normalized under each existing contract;
+retained clock calls normalize their nondeterministic timestamp only.
+
+A fresh-profile 24-second Direct3D Release startup reaches menu installation and
+frame pacing without logged errors. Both Windows EXE/plugin privacy scans pass.
+All forty-three memory-backed typed entries now have physical fixtures, with two
+additional scalar-only entries. This finishes the address audit of the existing
+forty-five-entry subset. Full readable-C++ game conversion remains in progress;
+these checks establish no new gameplay route, performance gain or animation fix.

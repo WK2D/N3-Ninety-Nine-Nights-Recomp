@@ -26,7 +26,7 @@ def asset_label(name):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", default="v0.1.0-alpha.9")
+    parser.add_argument("--version", default="v0.1.0-alpha.10")
     args = parser.parse_args()
     import re
     if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.]+)?", args.version):
