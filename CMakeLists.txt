@@ -21,7 +21,8 @@ include(CTest)
 add_library(n3_native STATIC src/native/frame_clock.cpp src/native/shape_bounds.cpp src/native/vector_ops.cpp
     src/native/frame_countdown.cpp src/native/scalar_math.cpp src/native/box_geometry.cpp
     src/native/shape_projection.cpp src/native/delay_block.cpp src/native/feedback_delay.cpp
-    src/native/bounded_value.cpp src/native/capped_accumulator.cpp)
+    src/native/bounded_value.cpp src/native/capped_accumulator.cpp src/native/handle_table.cpp
+    src/native/state_payload.cpp src/native/payload_install.cpp)
 target_include_directories(n3_native PUBLIC src)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(n3_native PRIVATE -ffp-model=strict -ffp-contract=off)
@@ -75,6 +76,15 @@ if(BUILD_TESTING)
     add_executable(n3_native_capped_accumulator_test tests/native_capped_accumulator_test.cpp)
     target_link_libraries(n3_native_capped_accumulator_test PRIVATE n3_native)
     add_test(NAME native_capped_accumulator COMMAND n3_native_capped_accumulator_test)
+    add_executable(n3_native_handle_table_test tests/native_handle_table_test.cpp)
+    target_link_libraries(n3_native_handle_table_test PRIVATE n3_native)
+    add_test(NAME native_handle_table COMMAND n3_native_handle_table_test)
+    add_executable(n3_native_state_payload_test tests/native_state_payload_test.cpp)
+    target_link_libraries(n3_native_state_payload_test PRIVATE n3_native)
+    add_test(NAME native_state_payload COMMAND n3_native_state_payload_test)
+    add_executable(n3_native_payload_install_test tests/native_payload_install_test.cpp)
+    target_link_libraries(n3_native_payload_install_test PRIVATE n3_native)
+    add_test(NAME native_payload_install COMMAND n3_native_payload_install_test)
     add_executable(n3_game_data_test tests/game_data_test.cpp)
     target_link_libraries(n3_game_data_test PRIVATE n3_game_data)
     add_test(NAME game_data_import COMMAND n3_game_data_test)
@@ -106,6 +116,9 @@ set(N3_SOURCES
     src/feedback_delay_hooks.cpp
     src/bounded_value_hooks.cpp
     src/capped_accumulator_hooks.cpp
+    src/handle_table_hooks.cpp
+    src/state_payload_hooks.cpp
+    src/state_relation_hooks.cpp
     src/game_setup.cpp
     src/frame_rate.cpp
     src/display_settings.cpp
@@ -197,6 +210,24 @@ if(BUILD_TESTING)
     target_link_libraries(n3_capped_accumulator_test PRIVATE n3_native n3_recomp rex::runtime)
     rexglue_apply_target_settings(n3_capped_accumulator_test)
     add_test(NAME capped_accumulator_equivalence COMMAND n3_capped_accumulator_test)
+    add_executable(n3_handle_table_test tests/handle_table_test.cpp src/handle_table_hooks.cpp)
+    target_include_directories(n3_handle_table_test PRIVATE src)
+    target_link_libraries(n3_handle_table_test PRIVATE n3_native n3_recomp rex::runtime)
+    rexglue_apply_target_settings(n3_handle_table_test)
+    add_test(NAME handle_table_equivalence COMMAND n3_handle_table_test)
+    add_executable(n3_state_payload_test tests/state_payload_test.cpp src/state_payload_hooks.cpp)
+    target_include_directories(n3_state_payload_test PRIVATE src)
+    target_compile_definitions(n3_state_payload_test PRIVATE N3_STATE_PAYLOAD_TEST)
+    target_link_libraries(n3_state_payload_test PRIVATE n3_native n3_recomp rex::runtime)
+    rexglue_apply_target_settings(n3_state_payload_test)
+    add_test(NAME state_payload_equivalence COMMAND n3_state_payload_test)
+    add_executable(n3_state_relation_test tests/state_relation_test.cpp src/state_relation_hooks.cpp
+        src/handle_table_hooks.cpp src/state_payload_hooks.cpp)
+    target_include_directories(n3_state_relation_test PRIVATE src)
+    target_compile_definitions(n3_state_relation_test PRIVATE N3_STATE_RELATION_TEST)
+    target_link_libraries(n3_state_relation_test PRIVATE n3_native n3_recomp rex::runtime)
+    rexglue_apply_target_settings(n3_state_relation_test)
+    add_test(NAME state_relation_equivalence COMMAND n3_state_relation_test)
     add_executable(n3_profile_config_test tests/profile_config_test.cpp src/profile_config.cpp)
     target_include_directories(n3_profile_config_test PRIVATE src)
     target_link_libraries(n3_profile_config_test PRIVATE rex::runtime)

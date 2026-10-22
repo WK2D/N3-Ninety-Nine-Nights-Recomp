@@ -352,7 +352,8 @@ use per-thread storage, and the shared core requires the existing FP contract.
 
 `src/native/bounded_value.h` separates channel selection, limit calculation,
 value adjustment and modifier replacement from guest tables. Seven entries use
-it through `src/bounded_value_hooks.cpp`. The surrounding class, channel meanings
+it through `src/bounded_value_hooks.cpp`; an eighth related-table entry uses
+`src/state_relation_hooks.cpp`. The surrounding class, channel meanings
 and gameplay units remain unidentified; these names describe the verified work.
 
 | Entry | Operation | Table descriptor offset | Percentage field |
@@ -364,6 +365,7 @@ and gameplay units remain unidentified; these names describe the verified work.
 | `0x820A13B0` | Replace modifier, then upper-only comparison | `+88` | `+728` |
 | `0x8209D688` | Add integer percentage of limit to bounded value | `+88` | `+728` |
 | `0x820B4DC8` | Conditional percentage addition to parallel value | `+8` | `+736` |
+| `0x8209DEE0` | Table value with related-object category selection | `+216` | `+784` |
 
 Descriptors are begin/end pointer pairs under the shared root plus category
 times 16. Parallel getters return zero-extended truncated bits directly.
@@ -435,6 +437,72 @@ percentage fields. The guard keeps those writes and original read order together
 and is released when the retained chain returns. The independent oracle switch
 exists only in the percentage differential test. Both entries preserve `f1`–`f4`,
 return/carry/condition state, the tested incidental registers and LR semantics.
+
+Entry `0x8209DEE0` checks the packed handle from `+340/+344` before selecting its
+table category. A matching key whose pointed object has kind 6 or 1000 selects
+category 2; otherwise category byte `+969` remains in use. Its own channel uses
+the existing kind/channel rule, and the row remains `+304`. The begin/end pair is
+at root plus category times 16 plus 216, and signed percentage `+784` replaces
+the earlier percentage fields. The same rounded factor/product and truncation
+produce a zero-extended 32-bit result without an additive offset.
+`SelectRelatedTableCategory` exposes that decision independently of guest memory.
+The adapter excludes 240 bytes of nested scratch before following lookup sources,
+retains final record/index/base registers, `f0/f13`, `f1`–`f4`, nonvolatile state,
+LR and condition/carry behavior, and restores FP controls before rejection.
+
+## Handle records and state payload installation
+
+Four connected entries expose verified record operations without assigning a
+gameplay role to the surrounding objects:
+
+| Entry | Native interface | Guest adapter |
+| --- | --- | --- |
+| `0x82081138` | `TryLookupHandleRecord` | `src/handle_table_hooks.cpp` |
+| `0x82080780` | Packed-handle key/index extraction and key validation | `src/handle_table_hooks.cpp` |
+| `0x8209D358` | `StatePayload` and `TryCopyStatePayload` | `src/state_payload_hooks.cpp` |
+| `0x8209D280` | `TryInstallStatePayload` | `src/state_relation_hooks.cpp` |
+
+The handle table contains 12-byte records with key, object and auxiliary words.
+The native API accepts a bounded span. The guest adapter checks a nonempty,
+forward, whole-record begin/end pair and the selected index before reading it.
+A packed handle's first word supplies the key; its low 16 bits are sign-extended
+before the original unsigned bounds check. Key validation compares the full
+first word and does not dereference the record's object word.
+The validating wrapper's original writes include a 112-byte frame below SP and
+16 bytes of argument homes at entry SP plus 16; sources must avoid both ranges.
+Unsupported geometry, wrapping, negative/out-of-range indices and source/output
+aliases retain the originals, including their invalid-input paths. Scoped guards
+retain the complete nested lookup when an outer adapter rejects.
+
+`StatePayload` names groups by offsets in the verified 100-byte record. Integer
+words retain all bits; its eight float fields support normal values and signed
+zeros. Native copies preserve those values without arithmetic. Exceptional or
+subnormal transfers, unmasked FP traps and overlapping guest records retain the
+original sequential loads and stores. Guest fields remain big-endian; native
+callers edit typed state without guest addresses or registers.
+
+The installer first copies this record to object `+336`. A nonnull optional
+vector enables word `+412` and replaces floats `+420/+424/+428`. For signed own
+kind at least 6, a matching handle whose related object has kind 1000 and variant
+other than `0xFFFFFFFF` multiplies words `+356` and `+360`, storing the low word
+back to `+356`. `PayloadInstallUpdate` exposes the full signed 64-bit product.
+Source fields, optional vector and relation data are explicit native inputs;
+rejection publishes neither state nor result details.
+
+The installer preserves the original branch-dependent return registers, including
+the payload pointer on its early branch, handle success or related variant on
+later branches, and the full product in `r9` when multiplication occurs. Payload
+float registers and optional-vector overrides retain their original values;
+`f1`–`f4`, nonvolatile registers, LR and condition/carry behavior remain intact.
+Both outer adapters exclude all 240 bytes of nested stack writes, including the
+inner validator's argument homes. A payload write that could replace a descriptor,
+record or later related-object read retains the original chain. Optional-vector
+and copy aliases also retain original read/write order through fallback.
+
+These interfaces prepare connected callers for further conversion. Broader
+progression and callback-driven state updates still need explicit ownership,
+callback and side-effect contracts; no gameplay role, speedup or new user-facing
+editing feature follows from the field offsets alone.
 
 ## Capped accumulation and optional accounting
 
@@ -629,6 +697,38 @@ directed overflow and exact unmasked cases. All GPR/FPR results and whole fixtur
 bytes match, normalizing only the untouched 16-byte scratch on native paths.
 Indirect registration and condition/carry/FP controls also match. These are
 synthetic state checks, not matched-scene gameplay or performance validation.
+
+The new `native_handle_table`, `native_state_payload` and `native_payload_install`
+fixtures exercise bounded lookup/key rules, editable payload fields, optional
+vectors, signed products, relation/category gates, signed zeros and rejection
+without publication. `handle_table_equivalence`, `state_payload_equivalence` and
+`state_relation_equivalence` are the corresponding retained-translation checks.
+Handle comparisons cover 3,584 calls over all rounding/flush/exception-mask
+combinations, including 1,024 native packed validations and 768 retained wrapper
+chains. They compare all scalar registers and condition fields, unaligned
+records, output/source overlaps, key/index boundaries, malformed retained
+layouts, the full frame and separate argument homes. Read-only queries reject
+unknown bounds without mutating output; uncommitted old pointers test guards
+before dependent reads. Integer handle code preserves FP controls and status.
+
+Payload comparisons cover 2,064 cases, including 1,344 native copies, all field
+groups, all eight scalar-source lanes, directed rounding, signed zeros, arbitrary
+integer bits, unaligned fields, adjacency and both overlap directions. They
+compare every fixture byte and scalar register. Outer relation comparisons cover
+4,896 cases, including 3,312 native calls, explicit wide positive/negative
+products, sentinel skips and category gates. They test copy/vector/related/table
+aliases, prologue-overwritten pointers, unmasked exact calls, pointer upper halves,
+return/condition/carry results and FP controls. Native installer results compare
+all scalar registers; native table-value results compare their contracted
+GPRs, `f0/f13`, preserved `f1`–`f4` and nonvolatile registers. Only untouched
+240-byte scratch is normalized for native outer calls; retained chains compare
+every byte and scalar register. Retained scopes must release before later native
+calls. Neither scalar-transferring native path claims every sticky FP status bit.
+
+Both Windows configurations pass thirty-four suites. A 24-second isolated
+Direct3D Release startup reaches menu installation and frame pacing without
+logged errors; Windows EXE/plugin privacy scans pass. These are synthetic and
+startup checks, with no additional gameplay or performance claim.
 
 ## Adding the next module
 

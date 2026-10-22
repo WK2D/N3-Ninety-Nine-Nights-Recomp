@@ -13,7 +13,7 @@ the tested opening route. Full-game coverage remains unvalidated.
 - Generated 13,762 function assignments across 87 translated C++ source files.
 - Windows x64 Release and RelWithDebInfo compile and link succeed with Clang 20.1.8.
 - Runtime initializes Direct3D 12, input, audio, and XEX imports.
-- Five JavaScript extractor tests and twenty-eight native regression suites pass.
+- Five JavaScript extractor tests and thirty-four native regression suites pass.
 - A 30-second boot test survived until the harness stopped it, without the prior
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
@@ -704,3 +704,55 @@ speedup or correct higher-FPS animation timing.
 
 Development now has thirty-seven typed native entries. Alpha 7 remains the
 published build with twenty-six; the full game-code conversion is ongoing.
+
+## Native handle and payload interfaces
+
+Five connected entries now have typed implementations, bringing development to
+forty-two distinct addresses verified against the source hooks. Alpha 7 remains
+the published build with twenty-six entries, using Direct3D 12.
+
+Entries `0x82081138` and `0x82080780` expose bounded 12-byte handle records,
+packed-key/index extraction and full-word key matching. The index uses the key's
+sign-extended low 16 bits before an unsigned bounds comparison. The guest
+adapters retain unknown table geometry and invalid cases, and account for the
+validator's original 112-byte frame plus its separate positive argument homes.
+
+Entry `0x8209D358` copies a typed 100-byte payload with explicit integer and
+float groups. Normal floats and signed zeros use native copies; exceptional
+transfers, unmasked traps and overlapping guest fields retain the ordered
+translation. Entry `0x8209D280` installs that payload at `+336`, optionally sets
+the enable word at `+412` and vector at `+420`, and conditionally multiplies words
+`+356/+360`. Multiplication requires signed own kind at least 6, a matching handle,
+related kind 1000 and variant other than `0xFFFFFFFF`. The low product is stored;
+the full signed product and branch-dependent return registers are retained.
+
+Entry `0x8209DEE0` selects category 2 when a matching related object has kind 6
+or 1000; otherwise it keeps category byte `+969`. It reads the 48-byte table at
+descriptor offset `+216`, uses signed percentage `+784`, and returns truncated
+bits without an additive offset. Both outer entries exclude all 240 bytes of
+nested stack writes and preserve complete retained chains for source/write aliases.
+
+Both Windows configurations pass thirty-four suites. Handle equivalence compares
+3,584 calls over all rounding, flush and exception-mask combinations, including
+1,024 native packed validations and 768 retained wrapper chains. Payload-copy
+equivalence compares 2,064 cases (1,344 native). The two outer state operations
+compare 4,896 cases (3,312 native), with explicit coverage of signed products
+wider than 32 bits, sentinel skips, optional vectors, stale keys, category changes,
+unaligned fields and ordered source/descriptor/record/stack aliases. All compare
+whole fixtures; native-only normalization removes untouched original scratch.
+Retained calls compare every byte and scalar register. The installer also checks
+all native scalar register outputs; the related table calculation checks its
+return and index/base registers, `f0/f13`, `f1` through `f4` and nonvolatile state.
+Upper pointer halves, condition/carry flags, LR and FP controls are covered.
+Read-only guard fixtures use uncommitted old pointers to require rejection before
+traversal. Subsequent native calls verify retained scopes are released.
+
+Portable fixtures exercise editable typed records, source/optional float
+rejection, signed index/key boundaries, multiplier gates and transactional
+publication. A fresh-profile 24-second Direct3D Release startup reaches menu
+installation and frame pacing without logged errors. Both Windows EXEs and
+Direct3D plugins pass binary privacy scans. No new gameplay coverage, performance
+result or full-platform support is claimed. Broader progression and callback-driven state remains
+translated until explicit ownership, side-effect and callback interfaces are
+established. The full readable-C++ game-code goal remains active; Python
+build/release tooling is unchanged and Vulkan remains parked.
