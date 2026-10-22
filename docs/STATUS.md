@@ -1093,3 +1093,28 @@ The older intermittent direction-basis issue did not recur in this batch's
 builds, and remains open without a claimed fix. Development now has sixty typed
 entries: fifty-eight memory-backed and two scalar-only. No new gameplay route,
 speedup or animation fix is established; full game conversion remains open.
+
+## Alpha 12 publication
+
+Published `v0.1.0-alpha.12` from source commit
+`b6e54c379a49a3db01fbbfbb93bc64b24b09aaa7`. The public tag resolves to that
+commit. The package includes sixty typed entries, fifty-eight with guest-memory
+fixtures and two scalar-only operations. Both Windows configurations pass
+forty-four suites; all twenty portable component suites pass on Windows, Ubuntu
+and Apple Silicon in the
+[matching CI run](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/actions/runs/39749085368).
+
+All 76 allowlisted package members, CRCs, fixed ZIP metadata, manifest source
+commit and corresponding-source hashes pass verification. Packaged runtime
+binaries match the tested Release outputs, and every embedded icon image matches
+the project ICO. The extracted importer and fresh-profile 24-second Direct3D
+startup pass, reaching menu installation and frame pacing without logged errors.
+Binary privacy checks pass; game data, profiles, logs, PDBs and loose images remain
+excluded. The public prerelease has exactly the Windows ZIP, optional
+corresponding sources and checksum list; all three public sizes and SHA-256
+digests match local files. README and packaged instructions point to Alpha 12.
+
+The older intermittent direction-basis validation issue remains open without a
+claimed cause or fix. This release establishes no additional gameplay coverage,
+performance gain, animation fix or complete game-code conversion. Entry counts
+are not a reliable conversion percentage.
