@@ -1,6 +1,7 @@
 #include "native/shape_projection.h"
 #include <bit>
 #include <cmath>
+#include <cstdint>
 #include <iostream>
 #include <limits>
 #include <stdexcept>

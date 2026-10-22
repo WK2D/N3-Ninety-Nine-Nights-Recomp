@@ -1,6 +1,7 @@
 #include "shape_projection.h"
 #include <bit>
 #include <cmath>
+#include <cstdint>
 
 #pragma STDC FENV_ACCESS ON
 
