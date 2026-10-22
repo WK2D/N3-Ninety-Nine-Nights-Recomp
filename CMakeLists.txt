@@ -18,7 +18,7 @@ endif()
 option(N3_BUILD_GAME "Build the Windows game and renderer" ON)
 include(CTest)
 
-add_library(n3_native STATIC src/native/frame_clock.cpp src/native/shape_bounds.cpp)
+add_library(n3_native STATIC src/native/frame_clock.cpp src/native/shape_bounds.cpp src/native/vector_ops.cpp)
 target_include_directories(n3_native PUBLIC src)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(n3_native PRIVATE -ffp-model=strict -ffp-contract=off)
@@ -48,6 +48,9 @@ if(BUILD_TESTING)
     add_executable(n3_native_bounds_test tests/native_bounds_test.cpp)
     target_link_libraries(n3_native_bounds_test PRIVATE n3_native)
     add_test(NAME native_shape_bounds COMMAND n3_native_bounds_test)
+    add_executable(n3_native_vector_test tests/native_vector_test.cpp)
+    target_link_libraries(n3_native_vector_test PRIVATE n3_native)
+    add_test(NAME native_vector_ops COMMAND n3_native_vector_test)
     add_executable(n3_game_data_test tests/game_data_test.cpp)
     target_link_libraries(n3_game_data_test PRIVATE n3_game_data)
     add_test(NAME game_data_import COMMAND n3_game_data_test)
@@ -71,6 +74,7 @@ set(N3_SOURCES
     src/crash_diagnostics.cpp
     src/runtime_fixes.cpp
     src/shape_bounds_hooks.cpp
+    src/vector_ops_hooks.cpp
     src/game_setup.cpp
     src/frame_rate.cpp
     src/display_settings.cpp
@@ -115,6 +119,11 @@ if(BUILD_TESTING)
     target_link_libraries(n3_shape_bounds_test PRIVATE n3_native n3_recomp rex::runtime)
     rexglue_apply_target_settings(n3_shape_bounds_test)
     add_test(NAME shape_bounds_equivalence COMMAND n3_shape_bounds_test)
+    add_executable(n3_vector_ops_test tests/vector_ops_test.cpp src/vector_ops_hooks.cpp)
+    target_include_directories(n3_vector_ops_test PRIVATE src)
+    target_link_libraries(n3_vector_ops_test PRIVATE n3_native n3_recomp rex::runtime)
+    rexglue_apply_target_settings(n3_vector_ops_test)
+    add_test(NAME vector_ops_equivalence COMMAND n3_vector_ops_test)
     add_executable(n3_profile_config_test tests/profile_config_test.cpp src/profile_config.cpp)
     target_include_directories(n3_profile_config_test PRIVATE src)
     target_link_libraries(n3_profile_config_test PRIVATE rex::runtime)

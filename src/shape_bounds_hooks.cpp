@@ -1,4 +1,5 @@
 #include "native/shape_bounds.h"
+#include "guest_native_support.h"
 #include <rex/ppc.h>
 #include <rex/memory/utils.h>
 #include <bit>
@@ -28,15 +29,9 @@ class ShapeView {
 };
 
 bool SeparateOutput(PPCContext& ctx, uint32_t output_size) {
-  using Platform = rex::platform::FPSCRPlatform;
   // Native expressions may evaluate independent components in a different
   // order. If exceptions can trap, preserve the original partial-write order.
-  const auto controls = (ctx.fpscr.csr & Platform::FlushMask) ? ctx.fpscr.csr : Platform::getcsr();
-#if defined(__x86_64__) || defined(_M_X64)
-  if ((controls & Platform::ExceptionMask) != Platform::ExceptionMask) return false;
-#else
-  if (controls & Platform::ExceptionMask) return false;
-#endif
+  if (!n3::guest::ScalarExceptionsMasked(ctx)) return false;
   // The verified source fields are within the first 304 bytes. Conservative
   // alias rejection preserves the original instruction-level read/write order.
   const uint64_t source = ctx.r3.u32, output = ctx.r4.u32;

@@ -150,7 +150,7 @@ pwsh -NoProfile -File tools/smoke.ps1 -Seconds 30
 pwsh -NoProfile -File tools/symbolize-fault.ps1
 ```
 
-The build runs native clock and shape bounds, callback floating-point, disc importer, game-path,
+The build runs native clock, shape bounds and vector operations, callback floating-point, disc importer, game-path,
 crash-report, frame-rate, menu-layout, profile persistence, and host presentation regression tests. The Xenos GPU
 plugin is rebuilt from the pinned SDK source with the local live-resolution
 extension in `tools/gpu/`. The first build downloads the corresponding SDK sources
@@ -184,7 +184,7 @@ notices, scans binaries for local identifiers, and writes ZIP checksums under
 ## References
 
 The [native engine module notes](docs/NATIVE-CODE.md) describe the typed frame
-clock and shape-bounds routines, guest-memory boundaries, and comparisons against
+clock, shape-bounds and vector routines, guest-memory boundaries, and comparisons against
 the translated game code.
 
 The next platform work targets Vulkan and Apple Silicon. Portable native

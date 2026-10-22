@@ -69,6 +69,45 @@ to broaden these cases for a larger native-coverage count. Unmasked host FP
 exceptions also use the original, retaining its partial-write order if a trap
 occurs.
 
+## Vector accumulation and synchronized channels
+
+`src/native/vector_ops.h` exposes editable vector operations independent of guest
+addresses, PPC registers, or the renderer. `src/vector_ops_hooks.cpp` binds seven
+additional game entries to these operations:
+
+| Entry | Verified behavior |
+| --- | --- |
+| `0x8208ECF8` | Add the vector at `+64`, multiplied by the double scalar in `f1`, to the accumulator at `+564` |
+| `0x8209D858` | Same operation using the vector at `+32` |
+| `0x8209D8A0` | Same operation using the vector at `+48` |
+| `0x82336D90` | Set a three-component value at `+4` and its cached copy at `+60` |
+| `0x82336DD0` | Set a four-component value at `+16` and its cached copy at `+72` |
+| `0x82336E48` | Set a three-component value at `+32` and its cached copy at `+88` |
+| `0x82336EB0` | Set a three-component value at `+44` and its cached copy at `+100` |
+
+`AccumulateScaledVector` separates the float32-rounded product from the addition
+and retains the caller's double scalar precision. `SetMirroredVector` updates
+both copies; the guest adapter publishes the cache before the current value,
+matching the original. `math_types.h` shares the Vec3/Vec4 types with other native
+modules. Callers can supply new vectors/scalars or change the native operation
+without editing translated code. For example:
+
+```cpp
+auto adjusted = n3::native::AccumulateScaledVector(current, direction, amount);
+n3::native::SetMirroredVector(channel, adjusted);
+```
+
+This is code-level control over the verified arithmetic and storage. Which
+objects/channels represent player movement, orientation, animation or other
+state still requires caller tracing. No player movement multiplier or gameplay
+retiming is inferred from field offsets alone.
+
+The adapters retain the translated path for exceptional/subnormal inputs,
+unmasked FP exceptions, wrapping address ranges and overlapping channel inputs.
+They share a reviewed FP-control guard with the shape hooks. Current/cached
+updates are not a new synchronization primitive and must remain on the game's
+existing owner thread.
+
 ## Verification
 
 `native_frame_clock` runs in the portable component build on Windows, Linux and
@@ -92,6 +131,14 @@ overflow, subnormals, infinities, NaN payloads, unaligned output and alias fallb
 It also checks guest calling convention, FP controls and indirect registration.
 These are synthetic bounds checks, not full collision/mission validation or a
 performance measurement.
+
+`native_vector_ops` checks explicit vector edits, signed zeros, scalar precision
+and synchronized three/four-component values without ReXGlue. The runtime suite
+`vector_ops_equivalence` compares all seven entries with the retained translations
+in 14,336 cases, across four rounding modes and both starting flush modes. It
+checks whole-buffer writes, unaligned objects/inputs, alias fallback, float and
+double edge patterns, indirect-call registration, preserved inputs and nonvolatile
+state. The existing shape comparisons also run after sharing the FP guard.
 
 These replacements do not fix accelerated animation at higher FPS. Animation, combat and
 scripted-event update paths still require matched-scene tracing and comparisons

@@ -1,7 +1,7 @@
 #pragma once
+#include "math_types.h"
 
 namespace n3::native {
-struct Vec3 { float x, y, z; };
 struct Bounds3 { Vec3 minimum, maximum; };
 struct SphereEnvelope { Vec3 center; float radius; };
 

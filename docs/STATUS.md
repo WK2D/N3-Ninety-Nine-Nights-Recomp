@@ -314,6 +314,26 @@ publication. An isolated packaged startup check uses a fresh local profile and
 the supported game data; it does not establish further mission coverage.
 Higher-FPS animation timing remains unresolved. Vulkan is not packaged.
 
+## Native vectors and cached channels
+
+Seven more engine entries now use typed C++ vector accumulation and synchronized
+three/four-component setters. The adapter preserves double input-scalar precision,
+float32 intermediate rounding, cache-first writes and fallback for exceptional
+values, aliases and unmasked FP exceptions. Vector/control types have no dependency
+on guest registers or the graphics API. The routine map and editable interfaces
+are in [native module notes](NATIVE-CODE.md).
+
+The new equivalence suite passes 14,336 cases against the retained translations;
+the portable tests exercise explicit vector edits and synchronized values. These
+interfaces provide code-level control over verified operations; identification
+of gameplay roles and in-mission coverage remain pending. No animation-speed or
+performance improvement is claimed. Direct3D 12 remains the active backend.
+
+Both Windows configurations pass thirteen suites. A separate 24-second Release
+startup presents through Direct3D 12 without logged errors until the harness
+stops its own child; it does not identify or exercise every converted routine's
+gameplay role. Executable and GPU plugin privacy scans pass.
+
 ## Next validation work
 
 1. Measure original-mode gameplay in the same scene and correct the accelerated
