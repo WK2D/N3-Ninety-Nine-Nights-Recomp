@@ -11,7 +11,7 @@ separate from game logic and remain part of the existing development toolchain.
 The codegen partition has 13,762 function assignments across 87 source files.
 Those bodies comprise 13,525 `sub_` routines and 237 named helpers. The runtime
 table adds 151 import mappings, for 13,913 address mappings overall. These
-inventories cover different boundaries. Development currently has 46 typed native
+inventories cover different boundaries. Development currently has 60 typed native
 entry points, grouped below and checked against the retained translations.
 These counts are not
 a percentage of game logic or work completed: functions differ greatly in size,
@@ -30,6 +30,7 @@ translations. Runtime/UI hooks are not counted as complete engine conversions.
 | Capped accumulation and accounting | 1 | Scaled increments, signed wrapping/capping and optional total/count state |
 | Handle lookup and state payloads | 4 | Bounded records, packed-key validation, typed field transfer, optional vectors and related-object multiplication |
 | Deterministic chance decisions | 1 | Explicit shared-sequence state, editable recurrence and signed normal/alternate thresholds |
+| Kind flags and conditional state queries | 14 | Eleven shared bit-mask queries, identity/category gates and a byte-preserving override |
 
 [Native contracts and validation](NATIVE-CODE.md) identify the addresses,
 supported inputs, guest adapters and equivalence checks. [Status](STATUS.md)
@@ -69,7 +70,7 @@ milestones. Passing those checks does not establish full-game compatibility,
 performance gains or a playable build on another operating system.
 
 The direction work also exposed the pinned runtime's physical-memory shadow
-bias. All 44 memory-backed typed entries now implement the mapped-address policy
+bias. All 58 memory-backed typed entries now implement the mapped-address policy
 and have independent high-address fixtures. Geometry, vectors/primitives, audio
 buffers and the cached clock view join the direction and connected state adapters.
 Complete spans reject wrap and shadow-boundary crossings before dependent reads;
@@ -79,6 +80,9 @@ frame. Three native results now match the original low-32-bit LR restore.
 The chance helper adds shared-seed/argument-home aliases and inaccessible unused
 threshold fixtures. Its six direct call sites remain translated around this
 native decision; other inlined random draws still use the shared seed.
+The new state-query group uses one shared flags model and preserves deferred
+related/kind/table/byte reads. Numeric masks remain unnamed until caller tracing
+establishes gameplay meanings; fourteen entry points are not fourteen subsystems.
 The two scalar-only entries have no guest-memory access. This finishes the audit
 of the existing typed subset; it does not convert the remaining translated game
 functions or eliminate supported-case fallbacks. Continue the caller/subsystem

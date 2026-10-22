@@ -1058,3 +1058,38 @@ Release notes preserve the unresolved intermittent direction-basis validation
 issue described above. Passing reruns do not establish its cause or a runtime
 fix. No new gameplay coverage, performance gain, animation fix or complete
 game-code conversion is claimed.
+
+## Typed kind flags and conditional state queries
+
+Fourteen entries now use `native/state_queries`: eleven shared kind-bit queries,
+an identity-gated flag query, a category-gated flag query and a byte-preserving
+override. Explicit flag words/masks, two-word identities, category and byte
+inputs can be inspected and edited without guest registers. Numeric bit meanings
+remain unassigned; fourteen entry points share a small group of operations and
+do not imply fourteen reconstructed subsystems.
+
+Adapters preserve wrapped kind/row offsets, physical mapping, raw byte returns,
+all integer/condition results, both identity-query argument homes and its SP `-8`
+store. Source/home and later-read/scratch aliases reject before publication or
+dependent traversal. Identity matches skip related/kind/table reads; category
+1024 skips the kind table; byte overrides skip unused fields. They do not change
+host or guest FP controls/status. Retained translations handle nonlinear ranges
+and unsupported aliases.
+
+Both Windows configurations pass forty-four suites. New differential tests cover
+28,672 calls: 26,464 native and 2,208 retained, plus eighty inaccessible-unused-page
+cases. All committed bytes, scalar/vector registers, condition/control state and
+exact FP state match without scratch normalization. Fixtures include individually
+high objects, owners, record/table cells and homes, alignments, offsets above
+4 GiB, wrapped indices, high register halves, boundaries and prologue aliases.
+Portable fixtures cover every bit, edited/combined/zero masks, identity/category
+gates and 2,304 byte selections. Test setup was corrected where a skipped kind
+read made a boundary case native-safe, and to initialize a moved category
+fixture's kind field; no adapter change was needed for either fixture correction.
+
+A fresh-profile 24-second Direct3D Release startup reaches menu installation and
+frame pacing without logged errors; Windows EXE/plugin privacy scans pass.
+The older intermittent direction-basis issue did not recur in this batch's
+builds, and remains open without a claimed fix. Development now has sixty typed
+entries: fifty-eight memory-backed and two scalar-only. No new gameplay route,
+speedup or animation fix is established; full game conversion remains open.

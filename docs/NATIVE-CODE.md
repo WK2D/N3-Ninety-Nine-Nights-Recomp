@@ -658,6 +658,48 @@ aliases before reading dependent values. Rejected cases retain the original.
 The adapter reads only the selected threshold, so an unused threshold can remain
 on an inaccessible page. It does not replace the other inlined shared-seed users.
 
+## Kind flags and conditional state queries
+
+`src/native/state_queries.h` exposes `KindFlags`, a selected-bit/boolean decision,
+two-word `StateIdentity`, the category gate and a byte-preserving override.
+`src/state_queries_hooks.cpp` replaces fourteen entries. Eleven share the same
+small kind-table operation; these are entry-point counts, not subsystem counts.
+The bit meanings remain numeric until surrounding callers establish names.
+
+| Entry | Verified operation |
+| --- | --- |
+| `0x8209E338` | Kind flag `0x1` |
+| `0x8209E368` | Kind flag `0x2` |
+| `0x8209E398` | Kind flag `0x4` |
+| `0x8209E470` | Kind flag `0x20` |
+| `0x8209E4A0` | Kind flag `0x80000` |
+| `0x8209E4D0` | Kind flag `0x100000` |
+| `0x8209E500` | Kind flag `0x40000` |
+| `0x8209E530` | Kind flag `0x20000` |
+| `0x8209E560` | Kind flag `0x400000` |
+| `0x8209E688` | Kind flag `0x10000` |
+| `0x8209E6B8` | Kind flag `0x800000` |
+| `0x8209E3C8` | Flag `0x8` only after both argument and related identity mismatch |
+| `0x8209E6E8` | Flag `0x10` unless the selected record's category is 1024 |
+| `0x8209E590` | Preserve byte `+716`, or return 1 for a nonzero request and zero guard `+160` |
+
+The kind field is at object `+496`; its word offset wraps as `kind * 4` before
+adding table base `0x825D9FA8`. This retains existing addressing rather than
+inventing a class-count bound. The adapter validates each derived word and maps
+physical addresses. The portable API accepts explicit flag words and editable
+masks, owning no guest memory or global state.
+
+The identity query compares object `+164/+168` with the packed argument and,
+when needed, the related three-word record at argument value `+844`. It keeps
+both 64-bit argument homes and the third record word's store at SP `-8`.
+Home/source and later-read/scratch aliases retain the original before any native
+publication or unsafe dependent read. An argument match skips related and table
+memory; a related match skips the table. Category queries follow object `+316`,
+owner `+444` and the `+192` row offset, reading category `+4` in 32-byte records.
+Category 1024 skips the kind field and table. Byte queries use only the low eight
+request bits and retain stored values through 255, without converting them to a
+boolean. Unused guard/stored bytes remain unread. No FP state is changed.
+
 ## Verification
 
 `native_frame_clock` runs in the portable component build on Windows, Linux and
@@ -675,6 +717,18 @@ all alignments, host offsets above 4 GiB, wrap/boundaries, default/alternate/see
 overlaps, argument-home aliases, signed threshold extremes and preserved unbiased
 canaries. Integer work is tested under all rounding/flush/exception-mask modes
 and divergent host/guest flush controls.
+
+`native_state_queries` checks all flag bits, combined/zero/edited masks, both
+identity words, exact category gating and 2,304 byte-selection combinations.
+`state_queries_equivalence` compares all fourteen retained entries in 28,672
+calls: 26,464 native and 2,208 retained. A further eighty calls make unused kind,
+table, guard or stored-byte pages inaccessible; a matching argument can also
+contain an unmapped related address. Every committed fixture byte, GPR/FPR/VMX,
+condition field, LR/CTR/XER and exact host/guest FP state matches without scratch
+normalization. Tests cover physical object/owner/record/table/homes, unaligned
+words, host offsets above 4 GiB, wrapped row/kind indices, high register halves,
+boundary fallback and source/home/scratch aliases. All rounding/flush/exception
+modes and divergent host/guest flush controls are exercised.
 
 `frame_rate_policy` compares the replacement with the actual retained translated
 initializer for 18 rate/frequency combinations. It compares the entire 48-byte
@@ -932,7 +986,8 @@ add 14,536 comparisons: 8,680 native and 5,856 retained. These include host offs
 above 4 GiB, unaligned and exact-tail spans, individually high objects/buffers/SP,
 boundary/wrap fallback, physical overlaps and unbiased-memory canaries. Those 43
 memory-backed typed entries have physical fixtures; the chance adapter adds a
-forty-fourth. Two scalar-only entries do not access memory.
+forty-fourth. The fourteen state-query entries bring this to fifty-eight.
+Two scalar-only entries do not access memory.
 This is coverage of the existing typed subset, not a full
 game conversion or proof for every possible guest layout.
 
@@ -959,7 +1014,7 @@ inactive and expired branches do not require unused stack storage. Clock, box
 sample and box-sphere results now zero-extend restored LR exactly as the original
 32-bit saved-LR load does. Portable math APIs and typed-entry counts are unchanged.
 
-Both Windows configurations pass forty-two suites. A 24-second isolated
+Both Windows configurations pass forty-four suites. A 24-second isolated
 Direct3D Release startup reaches menu installation and frame pacing without
 logged errors; Windows EXE/plugin privacy scans pass. These are synthetic and
 startup checks, with no additional gameplay or performance claim.

@@ -1,4 +1,4 @@
-N3 Recompiled - v0.1.0-alpha.11 (Windows x64)
+N3 Recompiled - v0.1.0-alpha.12 (Windows x64)
 
 GET STARTED
 1. Extract the entire Windows x64 ZIP to a writable folder.
@@ -60,21 +60,22 @@ Explicit game-data folders are verified before startup. Import destinations
 must not exist; unsuccessful/cancelled imports clean up their newly created tree.
 
 NATIVE ENGINE MODULES
-This release includes 46 typed native C++ entry points: the existing clock,
+This release includes 60 typed native C++ entry points: the existing clock,
 geometry, vector and primitive operations, additional delay/feedback kernels,
 table-derived values and percentage updates, capped accounting, handle/payload
 operations, direction normalization, selected-basis composition and a shared-seed
-chance decision. Native
+chance decision, plus fourteen kind-flag/conditional state-query entries. Eleven
+queries share one bit-mask operation. Native
 modules accept explicit state and inputs separately from guest registers and
 memory addresses. Tests compare supported behavior against retained translated
 routines, preserving rounding, flags and fallback for unsupported cases.
-Forty-two Windows suites and nineteen portable component suites on Windows, Linux
+Forty-four Windows suites and twenty portable component suites on Windows, Linux
 and Apple Silicon pass. Physical-memory shadow mapping now has fixtures for all
-44 memory-backed typed entries; two scalar-only entries do not access memory.
-The new chance decision preserves one shared-seed advance and the selected signed
-threshold per call, including guaranteed outcomes. Tests compare 4096 calls,
-1024 chained replays and 16 inaccessible unused-threshold cases against the
-original. The earlier geometry/audio/clock address fixes remain included.
+58 memory-backed typed entries; two scalar-only entries do not access memory.
+New state-query tests compare 28672 calls and 80 inaccessible unused-page cases
+against the originals, including physical tables, identities, category gates,
+byte returns and argument-home/scratch aliases. The earlier chance, geometry,
+audio and clock changes remain included.
 Full game conversion remains open.
 See the source conversion notes for supported domains.
 The playable game remains Windows x64 with Direct3D 12. These changes do not

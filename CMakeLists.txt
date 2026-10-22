@@ -23,7 +23,8 @@ add_library(n3_native STATIC src/native/frame_clock.cpp src/native/shape_bounds.
     src/native/shape_projection.cpp src/native/delay_block.cpp src/native/feedback_delay.cpp
     src/native/bounded_value.cpp src/native/capped_accumulator.cpp src/native/handle_table.cpp
     src/native/state_payload.cpp src/native/payload_install.cpp src/native/direction_math.cpp
-    src/native/direction_accumulation.cpp src/native/direction_basis.cpp src/native/chance_roll.cpp)
+    src/native/direction_accumulation.cpp src/native/direction_basis.cpp src/native/chance_roll.cpp
+    src/native/state_queries.cpp)
 target_include_directories(n3_native PUBLIC src)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(n3_native PRIVATE -ffp-model=strict -ffp-contract=off)
@@ -53,6 +54,9 @@ if(BUILD_TESTING)
     add_executable(n3_native_chance_roll_test tests/native_chance_roll_test.cpp)
     target_link_libraries(n3_native_chance_roll_test PRIVATE n3_native)
     add_test(NAME native_chance_roll COMMAND n3_native_chance_roll_test)
+    add_executable(n3_native_state_queries_test tests/native_state_queries_test.cpp)
+    target_link_libraries(n3_native_state_queries_test PRIVATE n3_native)
+    add_test(NAME native_state_queries COMMAND n3_native_state_queries_test)
     add_executable(n3_native_bounds_test tests/native_bounds_test.cpp)
     target_link_libraries(n3_native_bounds_test PRIVATE n3_native)
     add_test(NAME native_shape_bounds COMMAND n3_native_bounds_test)
@@ -136,6 +140,7 @@ set(N3_SOURCES
     src/direction_accumulation_hooks.cpp
     src/direction_basis_hooks.cpp
     src/chance_roll_hooks.cpp
+    src/state_queries_hooks.cpp
     src/game_setup.cpp
     src/frame_rate.cpp
     src/display_settings.cpp
@@ -242,6 +247,12 @@ if(BUILD_TESTING)
     target_link_libraries(n3_chance_roll_test PRIVATE n3_native n3_recomp rex::runtime)
     rexglue_apply_target_settings(n3_chance_roll_test)
     add_test(NAME chance_roll_equivalence COMMAND n3_chance_roll_test)
+    add_executable(n3_state_queries_test tests/state_queries_test.cpp src/state_queries_hooks.cpp)
+    target_include_directories(n3_state_queries_test PRIVATE src)
+    target_compile_definitions(n3_state_queries_test PRIVATE N3_STATE_QUERIES_TEST)
+    target_link_libraries(n3_state_queries_test PRIVATE n3_native n3_recomp rex::runtime)
+    rexglue_apply_target_settings(n3_state_queries_test)
+    add_test(NAME state_queries_equivalence COMMAND n3_state_queries_test)
     add_executable(n3_handle_table_test tests/handle_table_test.cpp src/handle_table_hooks.cpp)
     target_include_directories(n3_handle_table_test PRIVATE src)
     target_compile_definitions(n3_handle_table_test PRIVATE N3_HANDLE_TABLE_TEST)
