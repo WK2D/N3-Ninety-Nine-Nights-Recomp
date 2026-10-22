@@ -914,3 +914,24 @@ Physical-shadow coverage now includes sixteen of the forty-five typed entry
 points. Twenty-seven older memory-backed entries remain to audit, alongside the
 two scalar-only entries that have no guest-memory access. No new gameplay route,
 performance improvement or corrected higher-FPS animation timing is established.
+
+## Alpha 9 publication
+
+Published `v0.1.0-alpha.9` from source commit
+`0b80b4080dfafd2afa8456d8bec9f44411fdea9e`. The public tag resolves to that
+commit. The Windows package includes all forty-five typed entries, with the
+thirteen connected state adapters' physical-address fixes. Both Windows builds
+pass forty suites; all eighteen portable suites pass on Windows, Ubuntu and
+Apple Silicon in the
+[matching CI run](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/actions/runs/39740315468).
+
+All 76 allowlisted package members, archive CRCs, fixed metadata, manifest commit
+and corresponding-source hashes pass verification. Packaged binaries match the
+tested Release outputs, and every embedded icon image matches the project ICO.
+The extracted importer entry point and fresh-profile 24-second Direct3D startup
+pass; the startup reaches menu installation and frame pacing without logged
+errors. Binary privacy checks pass, and the tracked PNG contains only image-data
+chunks. Game data, profiles, logs, PDBs and loose images remain excluded.
+The public prerelease has exactly the Windows ZIP, optional source ZIP and
+checksum list, with all uploaded SHA-256 digests verified. The broader conversion
+and remaining twenty-seven memory-backed adapter audits stay in progress.
