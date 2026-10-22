@@ -1,4 +1,4 @@
-N3 Recompiled - v0.1.0-alpha.8 (Windows x64)
+N3 Recompiled - v0.1.0-alpha.9 (Windows x64)
 
 GET STARTED
 1. Extract the entire Windows x64 ZIP to a writable folder.
@@ -68,9 +68,10 @@ modules accept explicit state and inputs separately from guest registers and
 memory addresses. Tests compare supported behavior against retained translated
 routines, preserving rounding, flags and fallback for unsupported cases.
 Forty Windows suites and eighteen portable component suites on Windows, Linux
-and Apple Silicon pass. Physical-memory shadow mapping is tested for the three
-direction adapters; forty earlier memory-backed entries still need that broader
-address coverage. See the source conversion notes for supported domains.
+and Apple Silicon pass. Physical-memory shadow mapping is tested for sixteen
+entries: the three direction adapters and thirteen connected state operations.
+Twenty-seven older memory-backed entries still need that broader address coverage.
+See the source conversion notes for supported domains.
 The playable game remains Windows x64 with Direct3D 12. These changes do not
 establish a speed improvement or correct accelerated higher-FPS animations.
 

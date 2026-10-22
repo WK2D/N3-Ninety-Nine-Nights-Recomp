@@ -1,24 +1,31 @@
 #include "native/capped_accumulator.h"
 #include "guest_native_support.h"
+#include "guest_memory_address.h"
 #include <rex/memory/utils.h>
 #include <bit>
 
+#pragma STDC FENV_ACCESS ON
+
 extern "C" void __imp__sub_8209D7A8(PPCContext&, uint8_t*);
+#ifdef N3_CAPPED_ACCUMULATOR_TEST
+extern thread_local bool n3_capped_accumulator_native_used;
+#endif
 namespace {
 constexpr uint32_t percentage_unit = 0x82042048, baseline = 0x8205b614;
 constexpr uint32_t accounting_pointer = 0x82b60080;
 uint32_t Read(uint8_t* base, uint32_t at) {
-  return rex::memory::load_and_swap<uint32_t>(base + at);
+  return rex::memory::load_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, at));
 }
 void Write(uint8_t* base, uint32_t at, uint32_t bits) {
-  rex::memory::store_and_swap<uint32_t>(base + at, bits);
+  rex::memory::store_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, at), bits);
 }
 bool Process(PPCContext& ctx, uint8_t* base) {
   using namespace n3::guest;
   const auto object = ctx.r3.u32, stack = ctx.r1.u32;
-  if (!ScalarExceptionsMasked(ctx) || stack < 16 || !FitsGuestRange(object, 828)) return false;
+  if (!ScalarExceptionsMasked(ctx) || stack < 16 || !FitsLinearGuestRange(stack - 16, 16) ||
+      !FitsLinearGuestRange(object, 828)) return false;
   auto outside_scratch = [&](uint32_t at, uint32_t size) {
-    return DisjointGuestRanges(at, size, stack - 16, 16);
+    return FitsLinearGuestRange(at, size) && DisjointGuestHostRanges(at, size, stack - 16, 16);
   };
   if (!outside_scratch(object, 828) || !outside_scratch(percentage_unit, 4) ||
       !outside_scratch(baseline, 4)) return false;
@@ -28,15 +35,15 @@ bool Process(PPCContext& ctx, uint8_t* base) {
   const auto owner = Read(base, object + 824);
   uint32_t flag = 0, root = 0, total = 0, count = 0;
   if (owner) {
-    if (!FitsGuestRange(owner, 697) || !outside_scratch(owner + 696, 1) ||
-        !DisjointGuestRanges(value_address, 4, owner + 696, 1)) return false;
-    flag = base[owner + 696];
+    if (!FitsLinearGuestRange(owner, 697) || !outside_scratch(owner + 696, 1) ||
+        !DisjointGuestHostRanges(value_address, 4, owner + 696, 1)) return false;
+    flag = *GuestHostAddress(base, owner + 696);
     if (flag) {
       if (!outside_scratch(accounting_pointer, 4) ||
-          !DisjointGuestRanges(value_address, 4, accounting_pointer, 4)) return false;
+          !DisjointGuestHostRanges(value_address, 4, accounting_pointer, 4)) return false;
       root = Read(base, accounting_pointer);
-      if (!FitsGuestRange(root, 4716) || !outside_scratch(root + 4708, 8) ||
-          !DisjointGuestRanges(value_address, 4, root + 4708, 8)) return false;
+      if (!FitsLinearGuestRange(root, 4716) || !outside_scratch(root + 4708, 8) ||
+          !DisjointGuestHostRanges(value_address, 4, root + 4708, 8)) return false;
       count = Read(base, root + 4708); total = Read(base, root + 4712);
     }
   }
@@ -72,6 +79,9 @@ bool Process(PPCContext& ctx, uint8_t* base) {
   ctx.f13.f64 = double(parameters.baseline);
   if (owner) ctx.cr6.compare<uint32_t>(flag, 0, ctx.xer);
   else ctx.cr6.compare<uint32_t>(0, 0, ctx.xer);
+#ifdef N3_CAPPED_ACCUMULATOR_TEST
+  n3_capped_accumulator_native_used = true;
+#endif
   return true;
 }
 }

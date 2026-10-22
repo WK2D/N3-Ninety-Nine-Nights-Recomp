@@ -1,5 +1,6 @@
 #pragma once
 #include "guest_native_support.h"
+#include "guest_memory_address.h"
 #include "native/handle_table.h"
 #include <cstdint>
 
@@ -15,7 +16,8 @@ struct HandleQuery {
   bool key_matches;
 };
 // Read-only lookup of the verified 12-byte global handle-table format. Rejects
-// reversed/wrapping/partial tables, unknown bounds and scratch aliases before
+// reversed/wrapping/partial or non-linear tables, unknown bounds and mapped
+// scratch aliases before
 // following affected pointers. Rejection leaves query unchanged. No FP work.
 bool QueryHandleRecord(uint8_t* base, uint32_t index, HandleScratch scratch, HandleQuery& query);
 bool QueryPackedHandle(uint8_t* base, uint64_t packed, HandleScratch scratch, HandleQuery& query);

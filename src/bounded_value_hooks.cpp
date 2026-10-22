@@ -1,5 +1,6 @@
 #include "native/bounded_value.h"
 #include "guest_native_support.h"
+#include "guest_memory_address.h"
 #include <rex/memory/utils.h>
 #include <bit>
 
@@ -38,7 +39,10 @@ void CallRetainedChain(PPCContext& ctx, uint8_t* base, void (*original)(PPCConte
 }
 constexpr uint32_t table_pointer = 0x82b60088, percentage_unit = 0x82042048;
 constexpr uint32_t baseline = 0x8205b614, lower_bound = 0x8205b610;
-uint32_t Read(uint8_t* base, uint32_t at) { return rex::memory::load_and_swap<uint32_t>(base + at); }
+uint32_t Read(uint8_t* base, uint32_t at) { return rex::memory::load_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, at)); }
+void Write(uint8_t* base, uint32_t at, uint32_t value) {
+  rex::memory::store_and_swap<uint32_t>(n3::guest::GuestHostAddress(base, at), value);
+}
 float Float(uint8_t* base, uint32_t at) { return std::bit_cast<float>(Read(base, at)); }
 struct LimitInputs {
   ValueLimitParameters parameters;
@@ -50,12 +54,13 @@ bool ReadLimit(PPCContext& ctx, uint8_t* base, uint32_t scratch, LimitInputs& in
                LimitLayout layout = additive_layout, uint32_t pending_write = 0) {
   using namespace n3::guest;
   const auto object = ctx.r3.u32, stack = ctx.r1.u32;
-  if (!ScalarExceptionsMasked(ctx) || stack < scratch || !FitsGuestRange(object, 970)) return false;
+  if (!ScalarExceptionsMasked(ctx) || stack < scratch || !FitsLinearGuestRange(stack - scratch, scratch) ||
+      !FitsLinearGuestRange(object, 970)) return false;
   // A retained wrapper writes its frame before reading the object or globals.
   // Reject each source before traversing it: old aliased pointer bits need not
   // designate readable memory even when the original post-prologue bits do.
   auto outside_scratch = [&](uint32_t at, uint32_t size) {
-    return DisjointGuestRanges(at, size, stack - scratch, scratch);
+    return FitsLinearGuestRange(at, size) && DisjointGuestHostRanges(at, size, stack - scratch, scratch);
   };
   if (!outside_scratch(object, 970) || !outside_scratch(table_pointer, 4) ||
       !outside_scratch(percentage_unit, 4) || !outside_scratch(baseline, 4) ||
@@ -63,7 +68,7 @@ bool ReadLimit(PPCContext& ctx, uint8_t* base, uint32_t scratch, LimitInputs& in
   // The modifier setter writes before the original table lookup. Reject aliases
   // before following any old pointer that the write would have replaced.
   auto separate_write = [&](uint32_t at, uint32_t size) {
-    return !pending_write || DisjointGuestRanges(pending_write, 4, at, size);
+    return !pending_write || DisjointGuestHostRanges(pending_write, 4, at, size);
   };
   if (!separate_write(table_pointer, 4) || !separate_write(percentage_unit, 4) || !separate_write(baseline, 4)) return false;
   const auto channel = SelectValueLimitChannel(Read(base, object + 300), Read(base, object + 676), Read(base, object + 780));
@@ -71,11 +76,12 @@ bool ReadLimit(PPCContext& ctx, uint8_t* base, uint32_t scratch, LimitInputs& in
   // arithmetic rather than reading a different record through a native index.
   if (channel >= 12) return false;
   const auto root = Read(base, table_pointer);
-  const uint64_t metadata = uint64_t(root) + uint32_t(base[object + 969]) * 16 + layout.descriptor;
+  const uint64_t metadata = uint64_t(root) + uint32_t(*GuestHostAddress(base, object + 969)) * 16 + layout.descriptor;
   if (metadata + 8 > 0x100000000ull) return false;
   if (!outside_scratch(uint32_t(metadata), 8) || !separate_write(uint32_t(metadata), 8)) return false;
   const auto begin = Read(base, uint32_t(metadata)), end = Read(base, uint32_t(metadata) + 4);
-  if (!begin || end < begin || end - begin > 0x7fffffffu || (end - begin) % 48) return false;
+  if (!begin || end < begin || end - begin > 0x7fffffffu || (end - begin) % 48 ||
+      !FitsLinearGuestRange(begin, end - begin)) return false;
   const auto count = (end - begin) / 48, record = Read(base, object + 304);
   if (record >= count) return false;
   const uint64_t selected = uint64_t(begin) + uint64_t(record) * 48 + channel * 4;
@@ -106,7 +112,7 @@ bool Compute(PPCContext& ctx, uint8_t* base, bool adjust) {
   ctx.r9.u64 = inputs.parameters.additive_offset;
   ctx.xer.ca = false; // Positive, whole-record table length in the supported path.
   if (adjust) {
-    rex::memory::store_and_swap<uint32_t>(base + object + 664, std::bit_cast<uint32_t>(state.value));
+    Write(base, object + 664, std::bit_cast<uint32_t>(state.value));
     ctx.f0.f64 = double(update.upper_bound);
     ctx.cr6.compare(double(update.lower_clamped ? lower : update.sum), double(update.upper_bound));
     ctx.lr = uint32_t(ctx.lr);
@@ -138,7 +144,7 @@ bool ComputeGetter(PPCContext& ctx, uint8_t* base, LimitLayout layout) {
   return true;
 }
 bool SetModifier(PPCContext& ctx, uint8_t* base) {
-  if (!n3::guest::FitsGuestRange(ctx.r3.u32, 970)) return false;
+  if (!n3::guest::FitsLinearGuestRange(ctx.r3.u32, 970)) return false;
   const auto target = ctx.r3.u32 + ((ctx.r5.u32 & 0xff) ? 728 : 732);
   LimitInputs inputs;
   if (!ReadLimit(ctx, base, 128, inputs, additive_layout, target)) return false;
@@ -150,9 +156,9 @@ bool SetModifier(PPCContext& ctx, uint8_t* base) {
   if (!TrySetValueLimitModifier(state, replacement, ctx.r5.u32, update)) {
     ctx.fpscr.csr = saved_guest; rex::platform::FPSCRPlatform::setcsr(saved_host); return false;
   }
-  rex::memory::store_and_swap<uint32_t>(base + target, replacement);
+  Write(base, target, replacement);
   if (update.upper_clamped)
-    rex::memory::store_and_swap<uint32_t>(base + ctx.r3.u32 + 664, std::bit_cast<uint32_t>(state.value));
+    Write(base, ctx.r3.u32 + 664, std::bit_cast<uint32_t>(state.value));
   ctx.r3.u64 = update.limit.value; ctx.r4.u64 = uint64_t(inputs.record) * 3;
   ctx.r7.u64 = inputs.channel * 4; ctx.r9.u64 = state.parameters.additive_offset;
   ctx.r11.u64 = update.limit.truncated_bits;
@@ -172,7 +178,7 @@ bool AdjustPercentage(PPCContext& ctx, uint8_t* base) {
   if (!TryAdjustValueByPercentage(state, ctx.r4.s32, lower, update)) {
     ctx.fpscr.csr = saved_guest; rex::platform::FPSCRPlatform::setcsr(saved_host); return false;
   }
-  rex::memory::store_and_swap<uint32_t>(base + ctx.r3.u32 + 664, std::bit_cast<uint32_t>(state.value));
+  Write(base, ctx.r3.u32 + 664, std::bit_cast<uint32_t>(state.value));
   ctx.r3.u64 = update.limit.value; ctx.r4.u64 = uint64_t(inputs.record) * 3;
   ctx.r7.u64 = inputs.channel * 4; ctx.r9.u64 = inputs.parameters.additive_offset;
   ctx.r8.u64 = uint64_t(inputs.record) * 2;
@@ -187,16 +193,16 @@ bool AdjustPercentage(PPCContext& ctx, uint8_t* base) {
 bool ConditionalPercentage(PPCContext& ctx, uint8_t* base) {
   using namespace n3::guest;
   const auto object = ctx.r3.u32, stack = ctx.r1.u32;
-  if (stack < 128 || !FitsGuestRange(object, 1380) ||
-      !DisjointGuestRanges(object, 1380, stack - 128, 128)) return false;
+  if (stack < 128 || !FitsLinearGuestRange(stack - 128, 128) || !FitsLinearGuestRange(object, 1380) ||
+      !DisjointGuestHostRanges(object, 1380, stack - 128, 128)) return false;
   LimitInputs inputs;
   if (!ReadLimit(ctx, base, 128, inputs, {8, 736, false})) return false;
   const auto saved_host = rex::platform::FPSCRPlatform::getcsr(), saved_guest = ctx.fpscr.csr;
   ctx.fpscr.disableFlushMode();
   ValueLimitResult limit;
   ConditionalPercentageValueResult result;
-  const auto first = base[object + 1336];
-  const auto second = first ? 0 : base[object + 719];
+  const auto first = *GuestHostAddress(base, object + 1336);
+  const auto second = first ? 0 : *GuestHostAddress(base, object + 719);
   const auto percentage_bits = (first || second) ? Read(base, object + 1376) : 0;
   if (!TryComputeValueLimit(inputs.parameters, limit) ||
       !TryAddConditionalPercentage(limit.truncated_bits, first, second, std::bit_cast<int32_t>(percentage_bits),

@@ -68,9 +68,11 @@ milestones. Passing those checks does not establish full-game compatibility,
 performance gains or a playable build on another operating system.
 
 The direction work also exposed the pinned runtime's physical-memory shadow
-bias. Its three adapters now implement and test that address range. The forty
-older memory-backed typed entries still need this migration and physical fixtures;
-their existing comparisons cover virtual addresses. The next connected memory
-batch covers handles, payloads, table values and accounting together, so nested
-adapters share one mapping. Geometry/vectors/primitives, audio buffers and the
-cached clock view follow. The two scalar-only entries have no guest-memory access.
+bias. Sixteen adapters now implement and test that address range: the three
+direction entries and thirteen connected handle, payload, table-value and
+accounting entries. Their nested adapters share one mapping, validate ranges
+before pointer traversal and compare aliases using mapped host offsets.
+Twenty-seven older memory-backed entries still need this migration and physical
+fixtures: geometry/vectors/primitives, audio buffers and the cached clock view.
+Their current comparisons cover virtual addresses. The two scalar-only entries
+have no guest-memory access.

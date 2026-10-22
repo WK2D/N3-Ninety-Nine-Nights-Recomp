@@ -757,14 +757,14 @@ of an already-understood clock primitive.
 edits, modifier mode selection, truncation and positive saturation, 64-bit offset
 carry, upper-only versus lower/upper comparisons, signed zeros, rejection without
 mutation and integer rounding in all four modes.
-`bounded_value_equivalence` compares five retained entries in 10,640 cases using
+`bounded_value_equivalence` compares five retained entries in 11,920 cases using
 sparse synthetic guest memory for the original table and constant addresses.
 It covers table rows/categories, channels outside the native subset, signed
 integer extremes, exceptional float sources, aliases with state or stack,
 unaligned fields, original constants and altered values, plus unmasked exact
 arithmetic. Whole-fixture bytes match after normalizing only untouched native
 scratch; fallback cases compare those bytes too. Ordinary fixtures assert native
-path use; 7,483 cases use it overall. Checks include return/condition/carry state,
+path use; 8,338 cases use it overall. Checks include return/condition/carry state,
 `f0/f1/f2/f3/f4`, getter record/base registers, modifier `f13`, all
 nonvolatile GPR/FPRs, indirect registration and FP controls. A switch compiled
 only into the test target forces the retained nested limit callee when running
@@ -772,14 +772,14 @@ the retained wrappers, preserving an independent oracle. Modifier aliases cover
 full and partial overlaps with constants, selected cells and begin/end pointers.
 Prologue aliases include initially uncommitted root/descriptor pointer values
 that become valid through the original saved-LR write. Rejections must precede
-any traversal of those old values. A further 4,448 executions disable the switch
-and compare production composition; 432 explicitly exercise a retained outer
+any traversal of those old values. A further 4,960 executions disable the switch
+and compare production composition; 480 explicitly exercise a retained outer
 caller with a native nested limit. Only
 the unused 16-byte nested scratch is normalized in those mixed cases. These
 tests do not establish the surrounding gameplay role or every sticky FP status bit.
 
 `percentage_value_equivalence` compares both percentage entries with independent
-retained nested callees in 8,352 cases: 4,783 native and 3,569 complete retained
+retained nested callees in 8,864 cases: 5,111 native and 3,753 complete retained
 chains. Native cases normalize only their untouched full nested scratch; retained
 cases compare every byte and GPR/FPR. Comparisons cover all rounding/starting
 flush modes, signed conversion boundaries, altered constants, carry, both enable
@@ -794,7 +794,7 @@ late transactional rejection.
 `native_capped_accumulator` checks editable percentages and cap, signed wrap,
 negative increments, positive saturation, enabled/disabled accounting, 64-bit
 carries, integer rounding and rejected-trial rollback. `capped_accumulator_equivalence`
-compares the actual translation in 2,064 cases, including 1,152 native paths.
+compares the actual translation in 2,320 cases, including 1,296 native paths.
 It covers null/disabled/enabled owners, source/stack/write aliases, already-read
 source aliases, pointer wrapping, exceptional sources, late conversion failure,
 directed overflow and exact unmasked cases. All GPR/FPR results and whole fixture
@@ -807,19 +807,19 @@ fixtures exercise bounded lookup/key rules, editable payload fields, optional
 vectors, signed products, relation/category gates, signed zeros and rejection
 without publication. `handle_table_equivalence`, `state_payload_equivalence` and
 `state_relation_equivalence` are the corresponding retained-translation checks.
-Handle comparisons cover 3,584 calls over all rounding/flush/exception-mask
-combinations, including 1,024 native packed validations and 768 retained wrapper
+Handle comparisons cover 4,608 calls over all rounding/flush/exception-mask
+combinations, including 1,456 native packed validations and 848 retained wrapper
 chains. They compare all scalar registers and condition fields, unaligned
 records, output/source overlaps, key/index boundaries, malformed retained
 layouts, the full frame and separate argument homes. Read-only queries reject
 unknown bounds without mutating output; uncommitted old pointers test guards
 before dependent reads. Integer handle code preserves FP controls and status.
 
-Payload comparisons cover 2,064 cases, including 1,344 native copies, all field
+Payload comparisons cover 2,320 cases, including 1,544 native copies, all field
 groups, all eight scalar-source lanes, directed rounding, signed zeros, arbitrary
 integer bits, unaligned fields, adjacency and both overlap directions. They
 compare every fixture byte and scalar register. Outer relation comparisons cover
-4,896 cases, including 3,312 native calls, explicit wide positive/negative
+5,408 cases, including 3,640 native calls, explicit wide positive/negative
 products, sentinel skips and category gates. They test copy/vector/related/table
 aliases, prologue-overwritten pointers, unmasked exact calls, pointer upper halves,
 return/condition/carry results and FP controls. Native installer results compare
@@ -865,10 +865,30 @@ initial output bits, unaligned final stores and wrapped raw fourth lanes. Its
 physical cases include 168 native and 88 retained routes. No original scratch is
 removed from these comparisons. Sticky FP status remains outside the contract.
 
-Physical-shadow fixtures currently cover the three direction adapters. Forty
-older memory-backed typed entries still require mapped accesses, alias/range
-guards and corresponding high-address fixtures. Their earlier comparisons
-establish virtual-address behavior only; this remains part of the conversion work.
+Physical-shadow fixtures cover the three direction adapters and thirteen
+connected state entries. Handle tables, payload transfer/installation, bounded
+and related table values, percentages and capped accounting now map every word
+and byte access. Full table/payload/object/scratch spans reject wrapping and
+shadow-boundary crossings before following dependent pointers. Positive handle
+argument homes and below-SP frames are checked separately. Aliases compare mapped
+host ranges; retained-chain scopes preserve the original write-before-read order.
+
+The connected state suites add 3,840 physical cases: 2,712 native and 1,128
+retained. These include high object/root/owner/descriptor/record addresses,
+unaligned and top-page data, packed keys, independent category/enable-byte reads,
+optional vectors, signed wide products, counter carry, physical scratch aliases,
+post-prologue pointer replacement and boundary/wrap fallback. Test setup uses an
+independent address mapping; unbiased output/counter canaries and whole-region
+comparisons detect writes to the wrong host location. New test-only handle and
+accounting flags prove native selection without inferring it from shared helpers.
+Untouched native scratch is normalized under the existing per-entry contracts;
+retained calls compare it too. Contracted return/register results remain checked;
+the expanded handle, payload, relation and accounting fixtures also seed and
+compare preserved VMX registers and every condition field.
+
+Twenty-seven older memory-backed typed entries still require mapped accesses,
+alias/range guards and high-address fixtures. Their earlier comparisons establish
+virtual-address behavior only; this remains part of the conversion work.
 
 Both Windows configurations pass forty suites. A 24-second isolated
 Direct3D Release startup reaches menu installation and frame pacing without

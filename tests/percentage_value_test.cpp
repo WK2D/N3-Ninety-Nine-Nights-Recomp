@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <cstddef>
 #include <cstring>
 #include <iostream>
 #include <random>
@@ -16,12 +17,15 @@ extern "C" void __imp__sub_820B4DC8(PPCContext&, uint8_t*);
 extern PPCFuncMapping PPCFuncMappings[];
 thread_local bool n3_percentage_original_callees = false;
 void Require(bool ok, const char* message) { if (!ok) throw std::runtime_error(message); }
-struct Region { uint32_t start, size; };
-constexpr std::array<Region, 4> regions{{{0, 0x20000}, {0x82041000, 8192},
-    {0x8205b000, 4096}, {0x82b5f000, 8192}}};
+struct Region { uint64_t start; uint32_t size; };
+constexpr std::array<Region, 7> regions{{{0, 0x20000}, {0x82041000, 8192},
+    {0x8205b000, 4096}, {0x82b5f000, 8192}, {0xdfff0000, 0x20000},
+    {0xe1000000, 0x30000}, {0xffffb000, 0x15000}}};
+// Independent fixture mapping; the original generated accesses apply this bias.
+uint64_t HostOffset(uint32_t at) { return uint64_t(at) + (at >= 0xe0000000u ? 0x1000u : 0u); }
 struct Guest {
   uint8_t* base;
-  Guest() : base(static_cast<uint8_t*>(VirtualAlloc(nullptr, size_t{1} << 32, MEM_RESERVE, PAGE_NOACCESS))) {
+  Guest() : base(static_cast<uint8_t*>(VirtualAlloc(nullptr, (size_t{1} << 32) + 0x10000, MEM_RESERVE, PAGE_NOACCESS))) {
     Require(base != nullptr, "Cannot reserve sparse percentage fixture");
     for (auto region : regions) if (!VirtualAlloc(base + region.start, region.size, MEM_COMMIT, PAGE_READWRITE)) {
       VirtualFree(base, 0, MEM_RELEASE); throw std::runtime_error("Cannot commit percentage fixture");
@@ -34,7 +38,9 @@ struct Guest {
     for (auto region : regions) if (std::memcmp(base + region.start, other.base + region.start, region.size)) return false;
     return true;
   }
-  void Word(uint32_t at, uint32_t bits) { rex::memory::store_and_swap<uint32_t>(base + at, bits); }
+  uint8_t* Ptr(uint32_t at) const { return base + HostOffset(at); }
+  void Word(uint32_t at, uint32_t bits) { rex::memory::store_and_swap<uint32_t>(Ptr(at), bits); }
+  void Byte(uint32_t at, uint8_t value) { *Ptr(at) = value; }
 };
 void CheckRetainedRegisters(const PPCContext& original, const PPCContext& actual) {
 #define CHECK(n) Require(original.r##n.u64 == actual.r##n.u64 && original.f##n.u64 == actual.f##n.u64, "Retained percentage register differs");
@@ -43,6 +49,15 @@ void CheckRetainedRegisters(const PPCContext& original, const PPCContext& actual
   CHECK(20) CHECK(21) CHECK(22) CHECK(23) CHECK(24) CHECK(25) CHECK(26) CHECK(27) CHECK(28) CHECK(29)
   CHECK(30) CHECK(31)
 #undef CHECK
+}
+void CheckPhysicalContext(const PPCContext& a, const PPCContext& b) {
+#define CR(n) Require(a.cr##n.raw() == b.cr##n.raw(), "Physical percentage condition field differs");
+  CR(0) CR(1) CR(2) CR(3) CR(4) CR(5) CR(6) CR(7)
+#undef CR
+  Require(std::memcmp(reinterpret_cast<const uint8_t*>(&a) + offsetof(PPCContext, v0),
+                      reinterpret_cast<const uint8_t*>(&b) + offsetof(PPCContext, v0), 128 * sizeof(PPCVRegister)) == 0 &&
+          a.msr == b.msr && a.vscr_sat == b.vscr_sat && a.last_indirect_target == b.last_indirect_target,
+          "Physical percentage vector or preserved control state differs");
 }
 int main() {
   using Platform = rex::platform::FPSCRPlatform;
@@ -65,6 +80,7 @@ int main() {
     constexpr std::array<uint32_t, 8> integers{0, 1, 0xffffffffu, 0x80000000u,
         0x7fffffffu, 0x01000001u, 0x01000003u, 100};
     uint32_t comparisons = 0, native_count = 0, retained_count = 0, probes = 0;
+    uint32_t physical_native = 0, physical_retained = 0, unbiased_checks = 0;
     for (auto entry : entries) {
       address = entry.address;
       bool registered = false;
@@ -74,13 +90,39 @@ int main() {
       PPCContext probe_context{};
       for (rounding = 0; rounding < 4; ++rounding) for (bool next_flush : {false, true}) {
         flush = next_flush;
-        for (sample = 0; sample < 522; ++sample) {
+        for (sample = 0; sample < 554; ++sample) {
+          const bool physical = sample >= 522;
+          const auto physical_case = sample - 522;
+          bool physical_fallback = false;
           expected.Copy(seed);
           uint32_t stack = 0x18000, object = 0x1000 + sample % 4;
           uint32_t root = 0x4000 + sample % 4, table = 0x9000 + sample % 4;
           const auto descriptor = entry.conditional ? 8u : 88u;
           uint32_t link = 0x82081234, argument = sample < 32 ? sample : integers[sample % integers.size()];
           uint32_t channel = sample % 12, kind = sample % 2 ? 1000 : 17, extra = sample % 10;
+          if (physical) {
+            object = physical_case < 4 || physical_case >= 12 ? 0xe1001000u + physical_case % 4 : 0x1000;
+            root = (physical_case >= 4 && physical_case < 8) || physical_case >= 12 ? 0xe1006000u + physical_case % 4 : 0x4000;
+            table = physical_case >= 8 ? 0xe1010000u + physical_case % 4 : 0x9000;
+            if (physical_case >= 12) stack = 0xe1028000u;
+            argument = 40; kind = 17; channel = extra = 0;
+            if (physical_case == 16) root = 0xffffb000u;
+            if (physical_case == 17) table = 0xffffe000u;
+            if (physical_case == 18) object = 0xfffff800u;
+            if (physical_case == 19) stack = 0xfffff000u;
+            if (physical_case == 20) { object = 0xdffffd00u; physical_fallback = true; }
+            if (physical_case == 21) { root = 0xdffffffcu - descriptor; physical_fallback = true; }
+            if (physical_case == 22) { table = 0xdfffffe0u; physical_fallback = true; }
+            if (physical_case == 23) { table = 0xdfffffffu; physical_fallback = true; }
+            if (physical_case == 24) { stack = 0xe0000008u; physical_fallback = true; }
+            if (physical_case == 25) { table = 0xffffffd0u; physical_fallback = true; }
+            if (physical_case == 26) { object = 0xfffffd00u; physical_fallback = true; }
+            if (physical_case == 27) { root = uint32_t(0u - descriptor); physical_fallback = true; }
+            if (physical_case == 28) { table = stack - 16; physical_fallback = true; }
+            if (physical_case == 29) { stack = root + descriptor + 8; link = table; physical_fallback = true; }
+            if (physical_case == 30) { object = stack - 720; physical_fallback = true; }
+            if (physical_case == 31) { object = stack - 32 - 728; physical_fallback = true; }
+          }
           if (sample >= 320 && sample < 384) {
             constexpr std::array<uint32_t, 8> channels{12, 13, 0xffffffffu, 0xffffff00u,
                 0x40000000u, 0x80000000u, 0xfffffffeu, 11};
@@ -98,19 +140,19 @@ int main() {
             expected.Word(root + i * 16 + descriptor + 4, table + 16 * 48);
           }
           for (uint32_t i = 0; i < 16 * 12; ++i)
-            expected.Word(table + i * 4, sample < 32 ? 100 : uint32_t(int32_t(random() % 200001) - 100000));
+            expected.Word(table + i * 4, sample < 32 || physical ? 100 : uint32_t(int32_t(random() % 200001) - 100000));
           expected.Word(0x82b60088, root);
           expected.Word(0x82042048, 0x3c23d70a); expected.Word(0x8205b614, 0x3f800000); expected.Word(0x8205b610, 0);
-          expected.Word(object + 300, kind); expected.Word(object + 304, sample % 16);
+          expected.Word(object + 300, kind); expected.Word(object + 304, physical ? 0 : sample % 16);
           expected.Word(object + 676, channel); expected.Word(object + 780, extra);
-          expected.base[object + 969] = uint8_t(sample);
-          expected.Word(object + 728, sample < 32 ? 10 : uint32_t(int32_t(random() % 401) - 200));
-          expected.Word(object + 732, sample < 32 ? 5 : random());
-          expected.Word(object + 736, sample < 32 ? 25 : uint32_t(int32_t(random() % 401) - 200));
-          expected.Word(object + 664, std::bit_cast<uint32_t>(sample < 32 ? 10.0f : float(int32_t(random() % 2001) - 1000)));
-          expected.Word(object + 1376, sample < 32 ? 40 : integers[(sample + 3) % integers.size()]);
-          expected.base[object + 1336] = sample % 4 == 1 ? 0xff : sample % 4 == 2 ? 1 : 0;
-          expected.base[object + 719] = sample % 4 == 3 ? 0x80 : 0;
+          expected.Byte(object + 969, physical ? 0 : uint8_t(sample));
+          expected.Word(object + 728, sample < 32 || physical ? 10 : uint32_t(int32_t(random() % 401) - 200));
+          expected.Word(object + 732, sample < 32 || physical ? 5 : random());
+          expected.Word(object + 736, sample < 32 || physical ? 25 : uint32_t(int32_t(random() % 401) - 200));
+          expected.Word(object + 664, std::bit_cast<uint32_t>(sample < 32 || physical ? 10.0f : float(int32_t(random() % 2001) - 1000)));
+          expected.Word(object + 1376, sample < 32 || physical ? 40 : integers[(sample + 3) % integers.size()]);
+          expected.Byte(object + 1336, sample % 4 == 1 ? 0xff : sample % 4 == 2 ? 1 : 0);
+          expected.Byte(object + 719, sample % 4 == 3 ? 0x80 : 0);
           if (sample >= 192 && sample < 256) {
             const auto bits = floats[sample % floats.size()];
             if (sample % 4 == 0) expected.Word(0x82042048, bits);
@@ -127,8 +169,8 @@ int main() {
             const auto bits = floats[sample % floats.size()];
             expected.Word(0x82042048, bits); expected.Word(object + 664, floats[(sample + 5) % floats.size()]);
           }
-          const bool exact_unmasked = sample >= 520;
-          if (sample >= 512) {
+          const bool exact_unmasked = sample >= 520 && !physical;
+          if (sample >= 512 && !physical) {
             const auto alias = sample - 512;
             object = 0x1000; root = 0x4000; table = 0x9000; argument = 0;
             if (alias == 4 && entry.conditional) object = stack - 124 - 1336;
@@ -137,11 +179,11 @@ int main() {
             if (alias == 7) object = stack - 32 - 728;
             expected.Word(object + 300, 17); expected.Word(object + 304, 0);
             expected.Word(object + 676, 0); expected.Word(object + 780, 0);
-            expected.base[object + 969] = 0;
+            expected.Byte(object + 969, 0);
             expected.Word(object + 728, 0); expected.Word(object + 732, 0); expected.Word(object + 736, 0);
             expected.Word(object + 664, 0x3f800000);
             expected.Word(object + 1376, 100);
-            expected.base[object + 1336] = alias == 5 ? 1 : 0; expected.base[object + 719] = 0;
+            expected.Byte(object + 1336, alias == 5 ? 1 : 0); expected.Byte(object + 719, 0);
             expected.Word(0x82b60088, root);
             expected.Word(0x82042048, exact_unmasked ? 0 : 0x3c23d70a);
             expected.Word(0x8205b614, 0x3f800000); expected.Word(0x8205b610, 0);
@@ -155,10 +197,14 @@ int main() {
             if (alias == 2) { stack = table + 8; link = 1; }
             if (alias == 3) { stack = object + 736; link = 0; }
           }
+          if (physical && physical_case == 29) expected.Word(root + descriptor, 0xdead0000);
+          std::array<uint8_t, 4> unbiased_value{};
+          const bool unbiased = physical && object >= 0xe0000000u && uint64_t(object) + 668 <= 0x100000000ull;
+          if (unbiased) std::copy_n(expected.base + uint64_t(object) + 664, 4, unbiased_value.begin());
           actual.Copy(expected);
           const auto scratch = entry.conditional ? 128u : 256u;
           std::array<uint8_t, 256> before_stack;
-          std::copy_n(expected.base + stack - scratch, scratch, before_stack.begin());
+          std::copy_n(expected.Ptr(stack - scratch), scratch, before_stack.begin());
           PPCContext original{};
 #define SEED(n) original.r##n.u64 = 0x123456789abcde00ull + n; original.f##n.u64 = 0x40123456789abc00ull + n;
           SEED(0) SEED(1) SEED(2) SEED(3) SEED(4) SEED(5) SEED(6) SEED(7) SEED(8) SEED(9)
@@ -187,16 +233,27 @@ int main() {
           n3_percentage_original_callees = false;
           Platform::setcsr(initial); entry.replacement(replacement, actual.base);
           const bool native = replacement.r12.u64 == marker;
+          if (physical) {
+            Require(!physical_fallback || !native, "Unsafe physical percentage layout used native path");
+            Require(physical_fallback || native, "Ordinary physical percentage layout did not use native path");
+            if (native) ++physical_native; else ++physical_retained;
+          }
           if (native) {
             Require(!exact_unmasked, "Unmasked percentage used native path");
-            Require(std::equal(actual.base + stack - scratch, actual.base + stack, before_stack.begin()),
+            Require(std::equal(actual.Ptr(stack - scratch), actual.Ptr(stack - scratch) + scratch, before_stack.begin()),
                     "Native percentage wrote original scratch");
-            std::copy_n(before_stack.begin(), scratch, expected.base + stack - scratch); ++native_count;
+            std::copy_n(before_stack.begin(), scratch, expected.Ptr(stack - scratch)); ++native_count;
           } else {
             Require(sample >= 32, "Ordinary percentage fixture did not use native path");
             CheckRetainedRegisters(original, replacement); ++retained_count;
           }
           Require(expected.Same(actual), "Percentage whole-fixture bytes differ");
+          if (physical) CheckPhysicalContext(original, replacement);
+          if (unbiased) {
+            Require(std::equal(unbiased_value.begin(), unbiased_value.end(), actual.base + uint64_t(object) + 664) &&
+                    std::equal(unbiased_value.begin(), unbiased_value.end(), expected.base + uint64_t(object) + 664),
+                    "Physical percentage access changed an unbiased output canary"); ++unbiased_checks;
+          }
 #define DETAIL_GPR(n) if (original.r##n.u64 != replacement.r##n.u64) std::cerr << "r" #n << " expected " << std::hex << original.r##n.u64 << " actual " << replacement.r##n.u64 << std::dec << '\n';
           DETAIL_GPR(1) DETAIL_GPR(3) DETAIL_GPR(4) DETAIL_GPR(7) DETAIL_GPR(8) DETAIL_GPR(9) DETAIL_GPR(10) DETAIL_GPR(11)
 #undef DETAIL_GPR
@@ -234,8 +291,11 @@ int main() {
       }
     }
     Platform::setcsr(saved);
+    Require(physical_native >= 320 && physical_retained == 192 && unbiased_checks >= 320,
+            "Physical percentage records, shadow-boundary rejection or unbiased canaries lacked coverage");
     std::cout << comparisons << " percentage equivalence cases (" << native_count << " native, " << retained_count
-              << " complete retained chains), plus " << probes << " post-fallback native probes passed\n";
+              << " complete retained chains), plus " << probes << " post-fallback native probes; "
+              << physical_native << " physical native and " << physical_retained << " physical retained cases passed\n";
   } catch (const std::exception& error) {
     n3_percentage_original_callees = false; Platform::setcsr(saved);
     std::cerr << "Percentage 0x" << std::hex << address << std::dec << " sample " << sample

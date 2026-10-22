@@ -2,6 +2,7 @@
 #include "native/bounded_value.h"
 #include "guest_state_payload.h"
 #include "guest_handle_table.h"
+#include "guest_memory_address.h"
 #include <bit>
 
 extern "C" void __imp__sub_8209D280(PPCContext&, uint8_t*);
@@ -14,7 +15,7 @@ using namespace n3::native;
 using namespace n3::guest;
 constexpr uint32_t handle_descriptor = 0x82b4807c;
 constexpr uint32_t resource_pointer = 0x82b60088, percentage_unit = 0x82042048, baseline = 0x8205b614;
-uint32_t Read(uint8_t* base, uint32_t at) { return rex::memory::load_and_swap<uint32_t>(base + at); }
+uint32_t Read(uint8_t* base, uint32_t at) { return rex::memory::load_and_swap<uint32_t>(GuestHostAddress(base, at)); }
 float Scalar(uint8_t* base, uint32_t at) { return std::bit_cast<float>(Read(base, at)); }
 void Retained(PPCContext& ctx, uint8_t* base, void (*original)(PPCContext&, uint8_t*)) {
   RetainPayloadChain payload;
@@ -41,15 +42,15 @@ void HandleRegisters(PPCContext& ctx, const HandleQuery& query, uint32_t key) {
 }
 bool Install(PPCContext& ctx, uint8_t* base) {
   const auto object = ctx.r3.u32, source = ctx.r4.u32, vector = ctx.r5.u32, stack = ctx.r1.u32;
-  if (!ScalarExceptionsMasked(ctx) || stack < 240 || !FitsGuestRange(object, 436) ||
-      !FitsGuestRange(source, kStatePayloadSize)) return false;
+  if (!ScalarExceptionsMasked(ctx) || stack < 240 || !FitsLinearGuestRange(stack - 240, 240) ||
+      !FitsLinearGuestRange(object, 436) || !FitsLinearGuestRange(source, kStatePayloadSize)) return false;
   auto outside_scratch = [&](uint32_t at, uint32_t size) {
-    return DisjointGuestRanges(at, size, stack - 240, 240);
+    return FitsLinearGuestRange(at, size) && DisjointGuestHostRanges(at, size, stack - 240, 240);
   };
   if (!outside_scratch(object, 436) || !outside_scratch(source, kStatePayloadSize) ||
-      !DisjointGuestRanges(object, 436, source, kStatePayloadSize)) return false;
-  if (vector && (!FitsGuestRange(vector, 12) || !outside_scratch(vector, 12) ||
-                 !DisjointGuestRanges(vector, 12, object, 436))) return false;
+      !DisjointGuestHostRanges(object, 436, source, kStatePayloadSize)) return false;
+  if (vector && (!outside_scratch(vector, 12) ||
+                 !DisjointGuestHostRanges(vector, 12, object, 436))) return false;
   const auto payload = ReadStatePayload(base, source);
   const auto kind = Read(base, object + 300);
   const Vec3 optional = vector ? Vec3{Scalar(base, vector), Scalar(base, vector + 4), Scalar(base, vector + 8)} : Vec3{};
@@ -58,19 +59,19 @@ bool Install(PPCContext& ctx, uint8_t* base) {
   if (std::bit_cast<int32_t>(kind) >= 6) {
     // The payload write precedes all handle reads. Reject each possible changed
     // pointer before traversal, and a changed record before interpreting it.
-    if (!DisjointGuestRanges(object + 336, kStatePayloadSize, handle_descriptor, 8)) return false;
+    if (!DisjointGuestHostRanges(object + 336, kStatePayloadSize, handle_descriptor, 8)) return false;
     const uint64_t packed = uint64_t(payload.words4[0]) << 32 | payload.words4[1];
     if (!QueryPackedHandle(base, packed, {stack, 240}, query) ||
-        !DisjointGuestRanges(object + 336, kStatePayloadSize, query.address, 12)) return false;
+        !DisjointGuestHostRanges(object + 336, kStatePayloadSize, query.address, 12)) return false;
     relation.key_matches = query.key_matches;
     if (relation.key_matches) {
       const auto related = payload.words4[1];
-      if (!FitsGuestRange(related, 304) || !outside_scratch(related + 300, 4) ||
-          !DisjointGuestRanges(object + 336, kStatePayloadSize, related + 300, 4)) return false;
+      if (!FitsLinearGuestRange(related, 304) || !outside_scratch(related + 300, 4) ||
+          !DisjointGuestHostRanges(object + 336, kStatePayloadSize, related + 300, 4)) return false;
       relation.kind = Read(base, related + 300);
       if (relation.kind == 1000) {
-        if (!FitsGuestRange(related, 1112) || !outside_scratch(related + 1108, 4) ||
-            !DisjointGuestRanges(object + 336, kStatePayloadSize, related + 1108, 4)) return false;
+        if (!FitsLinearGuestRange(related, 1112) || !outside_scratch(related + 1108, 4) ||
+            !DisjointGuestHostRanges(object + 336, kStatePayloadSize, related + 1108, 4)) return false;
         relation.variant = Read(base, related + 1108);
       }
     }
@@ -111,9 +112,10 @@ bool Install(PPCContext& ctx, uint8_t* base) {
 }
 bool RelatedValue(PPCContext& ctx, uint8_t* base) {
   const auto object = ctx.r3.u32, stack = ctx.r1.u32;
-  if (!ScalarExceptionsMasked(ctx) || stack < 240 || !FitsGuestRange(object, 970)) return false;
+  if (!ScalarExceptionsMasked(ctx) || stack < 240 || !FitsLinearGuestRange(stack - 240, 240) ||
+      !FitsLinearGuestRange(object, 970)) return false;
   auto outside_scratch = [&](uint32_t at, uint32_t size) {
-    return DisjointGuestRanges(at, size, stack - 240, 240);
+    return FitsLinearGuestRange(at, size) && DisjointGuestHostRanges(at, size, stack - 240, 240);
   };
   if (!outside_scratch(object, 970) || !outside_scratch(resource_pointer, 4) ||
       !outside_scratch(percentage_unit, 4) || !outside_scratch(baseline, 4)) return false;
@@ -123,16 +125,17 @@ bool RelatedValue(PPCContext& ctx, uint8_t* base) {
   uint32_t related_kind = 0;
   if (query.key_matches) {
     const auto related = uint32_t(packed);
-    if (!FitsGuestRange(related, 304) || !outside_scratch(related + 300, 4)) return false;
+    if (!FitsLinearGuestRange(related, 304) || !outside_scratch(related + 300, 4)) return false;
     related_kind = Read(base, related + 300);
   }
-  const auto category = SelectRelatedTableCategory(base[object + 969], query.key_matches, related_kind);
+  const auto category = SelectRelatedTableCategory(*GuestHostAddress(base, object + 969), query.key_matches, related_kind);
   const auto channel = SelectValueLimitChannel(Read(base, object + 300), Read(base, object + 676), Read(base, object + 780));
   if (channel >= 12) return false;
   const uint64_t descriptor = uint64_t(Read(base, resource_pointer)) + category * 16 + 216;
   if (descriptor + 8 > 0x100000000ull || !outside_scratch(uint32_t(descriptor), 8)) return false;
   const auto begin = Read(base, uint32_t(descriptor)), end = Read(base, uint32_t(descriptor) + 4);
-  if (!begin || end < begin || end - begin > 0x7fffffffu || (end - begin) % 48) return false;
+  if (!begin || end < begin || end - begin > 0x7fffffffu || (end - begin) % 48 ||
+      !FitsLinearGuestRange(begin, end - begin)) return false;
   const auto count = (end - begin) / 48, row = Read(base, object + 304);
   if (row >= count) return false;
   const uint64_t record = uint64_t(begin) + uint64_t(row) * 48;

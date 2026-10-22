@@ -1,5 +1,6 @@
 #pragma once
 #include "native/state_payload.h"
+#include "guest_memory_address.h"
 #include <rex/memory/utils.h>
 #include <bit>
 
@@ -15,10 +16,11 @@ class RetainPayloadChain {
   RetainPayloadChain(const RetainPayloadChain&) = delete;
   RetainPayloadChain& operator=(const RetainPayloadChain&) = delete;
 };
-// Caller validates the whole guest range and read/write ordering before use.
+// Caller validates FitsLinearGuestRange(address, kStatePayloadSize) and mapped
+// read/write ordering before use.
 // These adapters transfer bits only; they perform no floating-point arithmetic.
 inline native::StatePayload ReadStatePayload(uint8_t* base, uint32_t address) {
-  auto word = [&](uint32_t offset) { return rex::memory::load_and_swap<uint32_t>(base + address + offset); };
+  auto word = [&](uint32_t offset) { return rex::memory::load_and_swap<uint32_t>(GuestHostAddress(base, address + offset)); };
   auto scalar = [&](uint32_t offset) { return std::bit_cast<float>(word(offset)); };
   native::StatePayload payload{};
   payload.word0 = word(0);
@@ -33,7 +35,7 @@ inline native::StatePayload ReadStatePayload(uint8_t* base, uint32_t address) {
 }
 inline void WriteStatePayload(uint8_t* base, uint32_t address, const native::StatePayload& payload) {
   auto word = [&](uint32_t offset, uint32_t value) {
-    rex::memory::store_and_swap<uint32_t>(base + address + offset, value);
+    rex::memory::store_and_swap<uint32_t>(GuestHostAddress(base, address + offset), value);
   };
   auto scalar = [&](uint32_t offset, float value) { word(offset, std::bit_cast<uint32_t>(value)); };
   word(0, payload.word0);

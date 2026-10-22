@@ -875,3 +875,42 @@ the public prerelease has exactly the Windows ZIP, optional source ZIP and
 checksum list. Existing local saves/settings and the stable development launcher
 remain in place. This release adds no new gameplay-validation or performance
 claim; full conversion and the older adapters' physical-address audit remain open.
+
+## Physical memory for connected native state
+
+Thirteen existing C++ entries now use the shared physical-shadow address mapping:
+seven bounded/table/percentage operations, capped accounting, two handle queries,
+payload copy and the two outer relation operations. All direct word and byte
+accesses use mapped host pointers, including category and enable flags. Complete
+object/table/payload/frame ranges reject wrap and shadow-boundary crossings before
+dependent reads. Mapped aliases preserve post-write/prologue dependencies through
+the retained chains. Handle argument homes and below-SP scratch remain separate
+ranges. The portable state/math interfaces and entry count are unchanged.
+
+Both Windows configurations pass forty suites. Expanded comparisons cover
+11,920 bounded-value cases (8,338 native), 8,864 percentage cases (5,111 native),
+2,320 capped accumulation cases (1,296 native), 4,608 handle cases, 2,320 payload
+cases (1,544 native) and 5,408 relation cases (3,640 native). Bounded-value
+production composition adds 4,960 executions, including 480 retained outer
+callers using a native nested calculation. The other retained-chain and
+post-fallback checks continue to pass.
+
+The new physical fixtures total 3,840 calls: 2,712 native and 1,128 retained.
+Independent setup mapping, whole committed-region comparisons and unbiased
+output/counter canaries cover high objects, roots, owners, descriptors, tables,
+payloads, vectors, stack/homes and upper pages. Cases include unaligned fields,
+counter carry, wide signed products, full boundary/wrap fallback and pointers
+overwritten by the original prologue. A related-table fixture was corrected to
+select the category that actually crosses the boundary; no adapter change was
+needed for that fixture. Test-only flags prove handle/accounting native routing.
+Existing per-entry register/FP contracts remain, with preserved VMX and condition
+checks added to handle, payload, relation and accounting fixtures. Untouched
+native scratch is normalized only where the earlier contract permits it;
+retained calls compare every byte.
+
+A fresh-profile 24-second Direct3D Release startup reaches menu installation and
+frame pacing without logged errors; both Windows EXE/plugin privacy scans pass.
+Physical-shadow coverage now includes sixteen of the forty-five typed entry
+points. Twenty-seven older memory-backed entries remain to audit, alongside the
+two scalar-only entries that have no guest-memory access. No new gameplay route,
+performance improvement or corrected higher-FPS animation timing is established.

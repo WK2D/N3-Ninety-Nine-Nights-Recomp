@@ -13,9 +13,9 @@ bool Copy(PPCContext& ctx, uint8_t* base) {
   using namespace n3::native;
   using namespace n3::guest;
   const auto source_address = ctx.r4.u32, destination_address = ctx.r3.u32;
-  if (!ScalarExceptionsMasked(ctx) || !FitsGuestRange(source_address, kStatePayloadSize) ||
-      !FitsGuestRange(destination_address, kStatePayloadSize) ||
-      !DisjointGuestRanges(source_address, kStatePayloadSize, destination_address, kStatePayloadSize)) return false;
+  if (!ScalarExceptionsMasked(ctx) || !FitsLinearGuestRange(source_address, kStatePayloadSize) ||
+      !FitsLinearGuestRange(destination_address, kStatePayloadSize) ||
+      !DisjointGuestHostRanges(source_address, kStatePayloadSize, destination_address, kStatePayloadSize)) return false;
   const auto source = ReadStatePayload(base, source_address);
   StatePayload destination;
   if (!TryCopyStatePayload(source, destination)) return false;
