@@ -1034,3 +1034,27 @@ frame pacing without logged errors; Windows EXE/plugin privacy scans pass.
 Development has forty-six typed entries: forty-four with guest-memory fixtures
 and two scalar-only operations. No additional gameplay route, speedup or
 higher-FPS animation fix is established. Full game-code conversion remains open.
+
+## Alpha 11 publication
+
+Published `v0.1.0-alpha.11` from source commit
+`49663600b8c90371a0f22f24d018a94eaf54b1a6`. The public tag resolves to that
+commit. The package includes forty-six typed entries and the new deterministic
+chance decision. Both current Windows configurations pass forty-two suites;
+all nineteen portable component suites pass on Windows, Ubuntu and Apple Silicon
+in the [matching CI run](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/actions/runs/39746146786).
+
+The package's 76 allowlisted members, CRCs, fixed metadata, manifest commit and
+corresponding-source hashes pass verification. Packaged binaries match the
+tested Release outputs, and every embedded icon image matches the project ICO.
+The extracted importer entry point and fresh-profile 24-second Direct3D startup
+pass; menu installation and frame pacing are logged without errors. Binary
+privacy scans pass. No game data, profiles, logs, PDBs or loose images are added.
+All three public asset digests and sizes match locally: Windows ZIP, optional
+corresponding sources and checksum list. Existing local saves/settings and the
+stable development launcher remain in place.
+
+Release notes preserve the unresolved intermittent direction-basis validation
+issue described above. Passing reruns do not establish its cause or a runtime
+fix. No new gameplay coverage, performance gain, animation fix or complete
+game-code conversion is claimed.
