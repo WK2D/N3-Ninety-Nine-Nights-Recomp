@@ -182,6 +182,41 @@ fall back without publishing a partial result; saved FP controls are restored
 first. Native arithmetic requires caller rounding and disabled scalar flush.
 Box state and output remain owned by the game's existing calling thread.
 
+## Oriented capsule bounds and box sphere radius
+
+`src/native/shape_projection.h` adds an `OrientedCapsule` with editable center,
+axis, radius and half-height, plus `CapsuleProjection` containing each endpoint's
+bounds and their merged bounds. `BoxSphereRadius` accepts explicit box half-extents.
+`src/shape_projection_hooks.cpp` binds two additional engine entries:
+
+| Entry | Native interface | Verified guest inputs/output |
+| --- | --- | --- |
+| `0x82366808` | `ProjectCapsuleBounds` | Axis at `+36/+48/+60`, center at `+68`, radius at `+288`, half-height at `+292`; six min/max components to `r4` |
+| `0x823603B0` | `BoxSphereRadius` | Center at `+68`, half-extents at `+292`; center and stored radius to `r4`, double square-root result in `f1` |
+
+Capsule projection rounds axis times half-height to float32, then forms rounded
+negative/positive endpoints and radius-expanded bounds. Merging updates only on
+strict comparisons, retaining the negative endpoint's bits on ties, including
+opposite signed zeros. The axis is not normalized and dimensions are not clamped;
+non-unit axes and negative radii/heights retain the original arithmetic. Endpoint
+bounds are exposed for native callers and geometry inspection. The adapter also
+preserves the original `f1` value and final `cr6` comparison.
+
+The box radius uses a float32-rounded Y square, then explicit double X and Z FMAs
+each narrowed to float32, followed by a double square root. Its stored radius
+rounds once more to float32, while `f1` retains the double result. A generic
+`hypot` or rescaled length would change the original overflow/underflow behavior:
+large finite extents can produce an infinite radius, and tiny normal extents can
+produce zero. This extraction preserves those cases rather than claiming more
+conservative bounds.
+
+Both adapters retain the original for exceptional/subnormal sources, unmasked
+traps, wrapping ranges and output/source aliases. Box-sphere source/output overlap
+with the original caller stack frame also falls back. Native arithmetic requires
+caller rounding, disabled scalar flush and masked traps. State remains on the
+game's existing owner thread. These interfaces do not identify player hitboxes or
+introduce user-facing geometry edits.
+
 ## Verification
 
 `native_frame_clock` runs in the portable component build on Windows, Linux and
@@ -240,6 +275,18 @@ normalize only dead caller stack scratch (24 bytes for bounds, 64 for samples)
 in non-overlapping masked cases; alias and unmasked cases compare every byte.
 These memory-output routines do not reproduce dead volatile FP/GPR temporaries.
 No new gameplay coverage, hitbox-role identification or speedup is established.
+
+`native_shape_projection` checks editable capsule geometry, endpoint merging,
+negative dimensions, signed-zero ties, source classification, radius precision
+and original square overflow/underflow. `shape_projection_equivalence` compares
+the two actual translations in 16,416 cases across all four rounding modes and
+both starting flush modes. Checks include arbitrary/edge float bits, explicit
+signed-zero ties, unaligned fields, source/output and stack aliases, unmasked
+exact arithmetic, `f1` bits, all nonvolatile GPR/FPRs, condition/carry flags, FP
+controls and indirect registration. Ordinary fixtures assert native-path use.
+Capsule checks compare every fixture byte; box-sphere checks normalize only its
+dead 96-byte caller stack frame in non-overlapping masked cases. No further
+mission coverage or performance improvement follows from these synthetic checks.
 
 These replacements do not fix accelerated animation at higher FPS. Animation, combat and
 scripted-event update paths still require matched-scene tracing and comparisons

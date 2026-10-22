@@ -13,7 +13,7 @@ the tested opening route. Full-game coverage remains unvalidated.
 - Generated 13,762 function assignments across 87 translated C++ source files.
 - Windows x64 Release and RelWithDebInfo compile and link succeed with Clang 20.1.8.
 - Runtime initializes Direct3D 12, input, audio, and XEX imports.
-- Five JavaScript extractor tests and seventeen native regression suites pass.
+- Five JavaScript extractor tests and nineteen native regression suites pass.
 - A 30-second boot test survived until the harness stopped it, without the prior
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
@@ -388,6 +388,30 @@ errors; the harness stops only its own child. Binary privacy scans pass. This
 brings the development build to twenty typed native entry points. Alpha 6 remains
 the published release with eighteen. No further gameplay coverage, player-hitbox
 identification, performance gain or animation-timing fix is established.
+
+## Native capsule projection and box sphere radius
+
+Two more entries now use typed portable geometry: oriented capsule bounds at
+`0x82366808` and the box enclosing-sphere calculation at `0x823603B0`. Capsule
+center, axis, radius and half-height are explicit inputs; endpoint bounds and
+their union are available to native callers. Strict endpoint comparisons preserve
+signed-zero ties. The box radius retains float32 square/FMA stages, a double
+square root and the original final float32 store, including overflow/underflow.
+No generic length rewrite or axis normalization changes the original behavior.
+Adapters retain exceptional/alias/unmasked paths and preserve `f1`/condition flags.
+See [projection contracts](NATIVE-CODE.md).
+
+Both Windows configurations pass nineteen suites. The new equivalence suite
+passes 16,416 comparisons against the retained translations, across all rounding
+and starting flush modes. It checks signed-zero ties, arbitrary/edge values,
+aliases, all nonvolatile registers, FP result/control bits and native-path use.
+Portable fixtures exercise editable dimensions and radius precision. An isolated
+24-second Release startup presents through Direct3D 12 at requested 60 FPS without
+logged errors until its harness stops its own child. Binary privacy scans pass.
+The development build now has twenty-two typed native entry points; Alpha 6
+remains the published release with eighteen. These checks do not establish
+player-hitbox roles, further mission coverage, improved performance or corrected
+higher-FPS animation timing.
 
 ## Next validation work
 
