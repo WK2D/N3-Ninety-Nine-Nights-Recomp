@@ -350,10 +350,21 @@ use per-thread storage, and the shared core requires the existing FP contract.
 
 ## Table-derived limits and bounded updates
 
-`src/native/bounded_value.h` separates channel selection, limit calculation and
-value adjustment from guest tables. Entries `0x8209DBF0` and `0x8209D718` use it
-through `src/bounded_value_hooks.cpp`. The surrounding class, channel meanings
+`src/native/bounded_value.h` separates channel selection, limit calculation,
+value adjustment and modifier replacement from guest tables. Five entries use
+it through `src/bounded_value_hooks.cpp`. The surrounding class, channel meanings
 and gameplay units remain unidentified; these names describe the verified work.
+
+| Entry | Operation | Table descriptor offset | Percentage field |
+| --- | --- | --- | --- |
+| `0x8209DBF0` | Limit with unsigned additive offset | `+88` | `+728` |
+| `0x8209D718` | Add signed delta, then lower/upper comparisons | `+88` | `+728` |
+| `0x8209DCF0` | Parallel table value, no additive offset | `+8` | `+736` |
+| `0x8209DDE8` | Parallel table value, no additive offset | `+40` | `+740` |
+| `0x820A13B0` | Replace modifier, then upper-only comparison | `+88` | `+728` |
+
+Descriptors are begin/end pointer pairs under the shared root plus category
+times 16. Parallel getters return zero-extended truncated bits directly.
 
 The limit entry chooses a channel from `+676`. For kind 1000 at `+300`, it first
 adds `+780` with 32-bit wrap and caps signed results at least 9 to channel 8.
@@ -381,10 +392,24 @@ than assuming ordered bounds. `BoundedValueUpdate` exposes intermediate and
 clamp results for native callers; source exceptions and nonfinite trials reject
 without changing state or update details.
 
-The adapters preserve the full 64-bit limit return in `r3`, final condition/carry
-behavior, `f0/f1/f2`, nonvolatile registers and LR semantics. All read regions are
-checked against original caller scratch: 16 bytes for the limit and a conservative
-128 bytes for adjustment, including its nested callee. They restore FP controls
+`ValueLimitState` exposes limit parameters and the current value together.
+`TrySetValueLimitModifier` replaces the signed percentage when mode's low byte
+is nonzero, or the unsigned additive offset otherwise. It recomputes the limit
+and compares the unchanged current value with the rounded signed low word of
+the result. Only an upper comparison occurs: negative values and negative zero
+survive when below or equal to the limit. Rejected trials leave both state and
+details unchanged. The adapter rejects modifier writes that overlap lookup
+pointers, descriptors, selected table cells or constants before following those
+sources, preserving the original write-before-read behavior through fallback.
+
+The adapters preserve the full 64-bit additive limit return in `r3`, final
+condition/carry behavior, `f0/f1/f2/f3/f4`, nonvolatile registers and LR semantics.
+Getter record/index/base registers and the modifier's final `f13` comparison
+source are retained. All read regions are checked against original caller
+scratch before traversal: 16 bytes for getters and a conservative 128 bytes for
+the wrappers, including their nested callee. A wrapper prologue can replace a
+root/descriptor pointer, so following its old bits before rejecting is unsafe.
+The adapters restore FP controls
 and status before unsupported-case fallback. The models require caller rounding,
 disabled scalar flush and masked traps. No gameplay retiming or new stat menu is
 introduced; concrete class roles still need matched-scene tracing.
@@ -511,21 +536,27 @@ before replacing or retiming them. Keep those changes separate from extraction
 of an already-understood clock primitive.
 
 `native_bounded_value` checks channel wrapping/capping, percentage and baseline
-edits, truncation and positive saturation, 64-bit offset carry, bound order,
-signed zeros, rejection without mutation and integer rounding in all four modes.
-`bounded_value_equivalence` compares both retained entries in 4,128 cases using
+edits, modifier mode selection, truncation and positive saturation, 64-bit offset
+carry, upper-only versus lower/upper comparisons, signed zeros, rejection without
+mutation and integer rounding in all four modes.
+`bounded_value_equivalence` compares five retained entries in 10,640 cases using
 sparse synthetic guest memory for the original table and constant addresses.
 It covers table rows/categories, channels outside the native subset, signed
 integer extremes, exceptional float sources, aliases with state or stack,
 unaligned fields, original constants and altered values, plus unmasked exact
 arithmetic. Whole-fixture bytes match after normalizing only untouched native
-scratch; fallback cases compare those bytes too. Ordinary fixtures assert the
-native path, and checks include return/condition/carry state, `f0/f1/f2`, all
+scratch; fallback cases compare those bytes too. Ordinary fixtures assert native
+path use; 7,483 cases use it overall. Checks include return/condition/carry state,
+`f0/f1/f2/f3/f4`, getter record/base registers, modifier `f13`, all
 nonvolatile GPR/FPRs, indirect registration and FP controls. A switch compiled
 only into the test target forces the retained nested limit callee when running
-the retained adjustment routine, preserving an independent oracle. A further
-2,064 executions disable that switch and compare the production composition;
-96 explicitly exercise a retained outer caller with a native nested limit. Only
+the retained wrappers, preserving an independent oracle. Modifier aliases cover
+full and partial overlaps with constants, selected cells and begin/end pointers.
+Prologue aliases include initially uncommitted root/descriptor pointer values
+that become valid through the original saved-LR write. Rejections must precede
+any traversal of those old values. A further 4,448 executions disable the switch
+and compare production composition; 432 explicitly exercise a retained outer
+caller with a native nested limit. Only
 the unused 16-byte nested scratch is normalized in those mixed cases. These
 tests do not establish the surrounding gameplay role or every sticky FP status bit.
 

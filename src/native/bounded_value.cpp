@@ -48,4 +48,19 @@ bool TryAdjustBoundedValue(BoundedValueState& state, int32_t delta, int32_t uppe
   state.value = next_value;
   return true;
 }
+bool TrySetValueLimitModifier(ValueLimitState& state, uint32_t replacement_bits,
+                              uint32_t mode, ValueLimitModifierUpdate& update) {
+  if (!SupportedSource(state.value)) return false;
+  auto next = state;
+  if ((mode & 0xffu) != 0) next.parameters.percentage_adjustment = std::bit_cast<int32_t>(replacement_bits);
+  else next.parameters.additive_offset = replacement_bits;
+  ValueLimitResult limit;
+  if (!TryComputeValueLimit(next.parameters, limit)) return false;
+  const auto upper_bound = RoundSigned(std::bit_cast<int32_t>(uint32_t(limit.value)));
+  const bool upper_clamped = double(state.value) > double(upper_bound);
+  if (upper_clamped) next.value = upper_bound;
+  update = {limit, state.value, upper_bound, upper_clamped};
+  state = next;
+  return true;
+}
 }

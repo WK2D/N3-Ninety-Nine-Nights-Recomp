@@ -13,7 +13,7 @@ the tested opening route. Full-game coverage remains unvalidated.
 - Generated 13,762 function assignments across 87 translated C++ source files.
 - Windows x64 Release and RelWithDebInfo compile and link succeed with Clang 20.1.8.
 - Runtime initializes Direct3D 12, input, audio, and XEX imports.
-- Five JavaScript extractor tests and twenty-three native regression suites pass.
+- Five JavaScript extractor tests and twenty-five native regression suites pass.
 - A 30-second boot test survived until the harness stopped it, without the prior
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
@@ -618,3 +618,41 @@ new gameplay coverage, a performance gain or corrected high-FPS animation timing
 
 Development now has thirty-one typed native entry points. Alpha 7 remains the
 published release with twenty-six. Full readable-C++ conversion remains active.
+
+## Native parallel table values and modifier updates
+
+Three more typed entries now use the native limit model. Entries `0x8209DCF0`
+and `0x8209DDE8` share the explicit channel selection and rounded percentage
+calculation with the existing limit model. They read different 48-byte record
+tables and use percentage fields `+736` and `+740`, respectively. Both return
+the zero-extended truncated result directly, without the additive offset used
+by `0x8209DBF0`.
+
+Entry `0x820A13B0` uses `ValueLimitState` to replace the percentage field `+728`
+when the mode's low byte is nonzero, or the offset field `+732` otherwise. It
+recomputes the limit and applies only an upper comparison to float field `+664`.
+No delta addition or lower clamp occurs. The model preserves signed zero,
+negative limits and the full 64-bit return carry. A rejected native trial
+publishes neither modifier nor value changes. Guest-memory aliases require
+the original modifier-write-before-source-read order or the retained translation.
+Surrounding gameplay classes and individual channel meanings remain unclaimed.
+
+Both Windows configurations pass all twenty-five suites. Limit equivalence now
+compares five entries in 10,640 fixtures, including 7,483 native paths. Another
+4,448 executions check production composition, including 432 retained outer
+callers with native nested calculations. Checks cover all rounding/starting
+flush modes, mode upper bytes, integer/float extremes, partial/full source
+aliases, unaligned fields, return carry, getter register results, preserved
+`f3/f4`, modifier `f13`, condition flags and FP controls. New prologue-alias
+fixtures use initially uncommitted root/descriptor targets that become valid
+after the original saved-LR write. Guards reject before following stale pointers.
+Portable fixtures cover editable modifier state, upper-only comparisons,
+negative zero, directed rounding and rejection without partial publication.
+A fresh-profile 24-second Direct3D Release startup reaches menu installation and
+frame pacing without logged errors. Both EXE and Direct3D plugin privacy scans
+pass. These checks do not establish new gameplay coverage, speed improvements
+or corrected higher-FPS animation timing.
+Development now includes thirty-four typed native entry points. Alpha 7 still
+packages twenty-six entries. Full game-code conversion remains in progress.
+Generated game translations already compile as C++; this work exposes readable
+typed state and behavior while Python build/release tooling remains intact.

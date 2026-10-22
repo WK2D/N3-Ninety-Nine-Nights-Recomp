@@ -42,4 +42,26 @@ struct BoundedValueUpdate {
 // trial arithmetic reject without changing state or update.
 bool TryAdjustBoundedValue(BoundedValueState& state, int32_t delta, int32_t upper_limit,
                            float lower_bound, BoundedValueUpdate& update);
+
+struct ValueLimitState {
+  ValueLimitParameters parameters;
+  float value;
+};
+struct ValueLimitModifierUpdate {
+  ValueLimitResult limit;
+  float previous_value, upper_bound;
+  bool upper_clamped;
+};
+// Replace the percentage adjustment when mode's low byte is nonzero; otherwise
+// replace the additive offset. Both replacements retain all 32 input bits.
+// Recompute the limit from the changed parameters, round its signed low word
+// to float32, then apply only the upper comparison to the original value.
+// No delta addition or lower clamp occurs, including for signed zeros and
+// negative limits. Previous value and rounded limit expose that comparison.
+// State and details publish together only after supported arithmetic succeeds;
+// rejected trials leave both unchanged. The same FP prerequisites apply.
+// Guest adapters must preserve the original modifier-write-before-source-read
+// behavior for aliased memory, or retain that case's original implementation.
+bool TrySetValueLimitModifier(ValueLimitState& state, uint32_t replacement_bits,
+                              uint32_t mode, ValueLimitModifierUpdate& update);
 }

@@ -1,18 +1,19 @@
 # Readable C++ game-code conversion
 
-The game already builds its generated translations into native machine code.
+The game already builds its generated C++ translations into native machine code.
 The conversion work replaces PowerPC register/memory-oriented implementations
 with typed C++ operations and explicit state that can be inspected, tested and
-modified independently of the Xbox runtime. Build/release scripts are separate
-from game logic and remain part of the existing development toolchain.
+modified independently of the Xbox runtime. Python build/release scripts are
+separate from game logic and remain part of the existing development toolchain.
 
 ## Current coverage
 
 The codegen partition has 13,762 function assignments across 87 source files.
 Those bodies comprise 13,525 `sub_` routines and 237 named helpers. The runtime
 table adds 151 import mappings, for 13,913 address mappings overall. These
-inventories cover different boundaries. Development currently has 31 typed native
-entry points, grouped below. These counts are not
+inventories cover different boundaries. Development currently has 34 typed native
+entry points, grouped below and checked against the retained translations.
+These counts are not
 a percentage of game logic or work completed: functions differ greatly in size,
 some entries share an implementation, and unsupported inputs still use retained
 translations. Runtime/UI hooks are not counted as complete engine conversions.
@@ -24,7 +25,7 @@ translations. Runtime/UI hooks are not counted as complete engine conversions.
 | Vector updates and cached channels | 7 | Explicit three/four-component values |
 | Countdown, scalar, bit and ratio operations | 5 | Counters, arithmetic inputs and bit windows |
 | Delay/mixing and feedback processing | 7 | Taps, gains, histories, cursors and output caches |
-| Table-derived limits and bounded values | 2 | Channel selection, percentage/offset inputs and lower/upper comparisons |
+| Table-derived limits and bounded values | 5 | Channel selection, parallel table values, modifier replacement and lower/upper comparisons |
 
 [Native contracts and validation](NATIVE-CODE.md) identify the addresses,
 supported inputs, guest adapters and equivalence checks. [Status](STATUS.md)

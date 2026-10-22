@@ -19,6 +19,20 @@ bool SameUpdate(const BoundedValueUpdate& first, const BoundedValueUpdate& secon
       std::bit_cast<uint32_t>(first.upper_bound) == std::bit_cast<uint32_t>(second.upper_bound) &&
       first.lower_clamped == second.lower_clamped && first.upper_clamped == second.upper_clamped;
 }
+bool SameState(const ValueLimitState& first, const ValueLimitState& second) {
+  const auto& a = first.parameters; const auto& b = second.parameters;
+  return a.base_value == b.base_value && a.percentage_adjustment == b.percentage_adjustment &&
+      a.additive_offset == b.additive_offset &&
+      std::bit_cast<uint32_t>(a.percentage_unit) == std::bit_cast<uint32_t>(b.percentage_unit) &&
+      std::bit_cast<uint32_t>(a.baseline) == std::bit_cast<uint32_t>(b.baseline) &&
+      std::bit_cast<uint32_t>(first.value) == std::bit_cast<uint32_t>(second.value);
+}
+bool SameUpdate(const ValueLimitModifierUpdate& first, const ValueLimitModifierUpdate& second) {
+  return first.limit.truncated_bits == second.limit.truncated_bits && first.limit.value == second.limit.value &&
+      std::bit_cast<uint32_t>(first.previous_value) == std::bit_cast<uint32_t>(second.previous_value) &&
+      std::bit_cast<uint32_t>(first.upper_bound) == std::bit_cast<uint32_t>(second.upper_bound) &&
+      first.upper_clamped == second.upper_clamped;
+}
 void CheckSelector() {
   Require(SelectValueLimitChannel(1, 12, 999) == 12 &&
           SelectValueLimitChannel(0xffffffffu, 0x80000000u, 0x80000000u) == 0x80000000u,
@@ -98,6 +112,61 @@ void CheckAdjustment() {
           update.sum == std::numeric_limits<float>::max() && !update.lower_clamped && update.upper_clamped,
           "Finite extremes must follow lower then upper comparisons");
 }
+void CheckModifier() {
+  ValueLimitState state{{400, 25, 3, std::bit_cast<float>(0x3c23d70au), 1}, 650};
+  ValueLimitModifierUpdate update{};
+  Require(TrySetValueLimitModifier(state, 50, 0x12340001u, update) &&
+          state.parameters.percentage_adjustment == 50 && state.parameters.additive_offset == 3 &&
+          update.limit.value == 603 && update.previous_value == 650 && update.upper_bound == 603 &&
+          update.upper_clamped && state.value == 603,
+          "Percentage replacement must recompute the limit before upper clamping");
+  state.value = 700;
+  Require(TrySetValueLimitModifier(state, 50, 0x100u, update) &&
+          state.parameters.percentage_adjustment == 50 && state.parameters.additive_offset == 50 &&
+          update.limit.value == 650 && state.value == 650 && update.upper_clamped,
+          "Zero mode low byte must select the offset despite nonzero upper bytes");
+  state.value = -8;
+  Require(TrySetValueLimitModifier(state, 0xffffff9cu, 0xffu, update) &&
+          state.parameters.percentage_adjustment == -100 && state.parameters.additive_offset == 50 &&
+          update.limit.value == 50 && state.value == -8 && !update.upper_clamped,
+          "Modifier updates must preserve signed replacement bits and omit a lower clamp");
+  state = {{-5, 0, 0, 0, 1}, -8};
+  Require(TrySetValueLimitModifier(state, 0, 0, update) && update.limit.value == 0xfffffffbu &&
+          update.upper_bound == -5 && state.value == -8 && !update.upper_clamped,
+          "Values below a negative limit must remain unchanged");
+  state.value = -2;
+  Require(TrySetValueLimitModifier(state, 0, 0, update) && state.value == -5 && update.upper_clamped,
+          "Upper-only modifier update must accept a negative limit");
+  state = {{-7, 25, 0, std::bit_cast<float>(0x3c23d70au), 1}, -10};
+  Require(TrySetValueLimitModifier(state, 0xffffffffu, 0, update) &&
+          state.parameters.additive_offset == 0xffffffffu && update.limit.truncated_bits == 0xfffffff8u &&
+          update.limit.value == 0x1fffffff7ull && update.upper_bound == -9 && state.value == -10 && !update.upper_clamped,
+          "Modifier update must retain the return carry and clamp against its signed low word");
+  state = {{8, 0, 0, 0, 1}, 2};
+  Require(TrySetValueLimitModifier(state, 0x80000000u, 1, update) &&
+          state.parameters.percentage_adjustment == std::numeric_limits<int32_t>::min() &&
+          update.limit.value == 8 && state.value == 2, "Percentage replacement lost high input bits");
+  const ValueLimitModifierUpdate sentinel{{0x12345678u, 0x123456789abcdef0ull}, -7, 13, true};
+  for (uint32_t bits : {1u, 0x80000001u, 0x7f800000u, 0xff800000u, 0x7fc12345u, 0x7f812345u}) {
+    state = {{10, 0, 3, 0, 1}, std::bit_cast<float>(bits)}; update = sentinel;
+    const auto before = state;
+    Require(!TrySetValueLimitModifier(state, 7, 1, update) && SameState(state, before) && SameUpdate(update, sentinel),
+            "Unsupported current value must not publish a modifier or result");
+    state = {{10, 0, 3, std::bit_cast<float>(bits), 1}, 2};
+    const auto invalid_parameters = state;
+    Require(!TrySetValueLimitModifier(state, 7, 0, update) && SameState(state, invalid_parameters) && SameUpdate(update, sentinel),
+            "Unsupported arithmetic must not publish an offset or result");
+  }
+  state = {{std::numeric_limits<int32_t>::min(), 0, 3, std::bit_cast<float>(0x3c23d70au), 1}, 2};
+  const auto negative_before = state; update = sentinel;
+  Require(!TrySetValueLimitModifier(state, 100, 1, update) && SameState(state, negative_before) && SameUpdate(update, sentinel),
+          "Late exceptional conversion must leave the requested percentage unpublished");
+  state = {{1, 0, 3, std::numeric_limits<float>::max(), 1}, 2};
+  const auto overflow_before = state;
+  Require(!TrySetValueLimitModifier(state, uint32_t(std::numeric_limits<int32_t>::max()), 1, update) &&
+          SameState(state, overflow_before) && SameUpdate(update, sentinel),
+          "Overflowing requested modifier must reject transactionally");
+}
 void CheckRounding() {
   for (const auto rounding : {FE_TONEAREST, FE_TOWARDZERO, FE_DOWNWARD, FE_UPWARD}) {
     Require(std::fesetround(rounding) == 0, "Rounding mode unavailable");
@@ -119,15 +188,26 @@ void CheckRounding() {
     Require(TryAdjustBoundedValue(state, 0, 16777217, 0, update) && update.upper_bound == rounded &&
             state.value == float(rounded) && update.upper_clamped == (rounding != FE_UPWARD),
             "Upper integer conversion must honor caller rounding");
+    ValueLimitState modifier_state{{16777217, 0, 0, 0, 1}, 16777218};
+    ValueLimitModifierUpdate modifier_update{};
+    Require(TrySetValueLimitModifier(modifier_state, 0, 0, modifier_update) &&
+            modifier_update.limit.value == rounded && modifier_update.upper_bound == float(rounded) &&
+            modifier_state.value == float(rounded) && modifier_update.upper_clamped == (rounding != FE_UPWARD),
+            "Modifier recomputation must honor integer and upper-bound rounding");
+    modifier_state = {{0, 0, 0, 0, 1}, -0.0f};
+    Require(TrySetValueLimitModifier(modifier_state, 0, 0x100u, modifier_update) &&
+            std::bit_cast<uint32_t>(modifier_state.value) == 0x80000000u &&
+            std::bit_cast<uint32_t>(modifier_update.previous_value) == 0x80000000u && !modifier_update.upper_clamped,
+            "Modifier recomputation must preserve negative zero without adding a zero delta");
   }
 }
 int main() {
   const auto saved_rounding = std::fegetround();
   try {
     Require(std::fesetround(FE_TONEAREST) == 0, "Nearest rounding unavailable");
-    CheckSelector(); CheckLimit(); CheckAdjustment(); CheckRounding();
+    CheckSelector(); CheckLimit(); CheckAdjustment(); CheckModifier(); CheckRounding();
     std::fesetround(saved_rounding);
-    std::cout << "Editable table/value limits, staged integer rounding, ordered bounds and rejection passed\n";
+    std::cout << "Editable table/value limits, modifier replacement, staged integer rounding, bounds and rejection passed\n";
   } catch (const std::exception& error) {
     std::fesetround(saved_rounding); std::cerr << error.what() << '\n'; return 1;
   }
