@@ -848,3 +848,30 @@ pass binary privacy scans. These checks establish no additional gameplay route,
 speed improvement, corrected animation timing or full-game platform support.
 Development now has forty-five typed native entry points; Alpha 7 still packages
 twenty-six. The complete readable-C++ game-code conversion remains in progress.
+
+## Alpha 8 publication
+
+Published `v0.1.0-alpha.8` from source commit
+`7f1d2c52e70beffa4bb73de81b02107e02830da3`, including all forty-five typed native
+entry points. The public tag resolves to that commit. README download links,
+packaged instructions and release notes now describe Alpha 8. Both Windows
+configurations pass forty suites; all eighteen portable component suites pass on
+Windows, Ubuntu and Apple Silicon in the
+[matching CI run](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/actions/runs/39738204114).
+
+The Windows package contains 76 allowlisted files. All member hashes, CRCs,
+fixed ZIP metadata and the source-commit manifest were verified. Packaged runtime
+binaries match the tested Release outputs. Every embedded icon image matches the
+project ICO; the Windows resource compiler fills its unspecified plane count.
+The extracted importer's usage entry point and a fresh-profile 24-second
+Direct3D startup pass. The latter reaches menu installation and frame pacing
+without logged errors and stops only its own child process.
+
+The optional corresponding-source archive passes CRC checks and its six local
+renderer/build-extension hashes match. Binary privacy checks pass; game data,
+saves, profiles, paths, logs, PDBs and loose images are excluded from the Windows
+package. All three uploaded asset SHA-256 digests match their local files, and
+the public prerelease has exactly the Windows ZIP, optional source ZIP and
+checksum list. Existing local saves/settings and the stable development launcher
+remain in place. This release adds no new gameplay-validation or performance
+claim; full conversion and the older adapters' physical-address audit remain open.
