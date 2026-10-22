@@ -591,3 +591,30 @@ performance and higher-FPS animation timing remain unvalidated.
 
 Development has twenty-nine typed native entry points. The full readable-C++
 conversion remains in progress; Alpha 7 still packages twenty-six entries.
+
+## Native table-derived limit and bounded value
+
+Entries `0x8209DBF0` and `0x8209D718` now use explicit channel selection,
+`ValueLimitParameters` and `BoundedValueState`. The first selects a signed table
+value, applies the original rounded percentage/baseline arithmetic and adds an
+unsigned offset with 64-bit carry. The second changes float field `+664` by a
+signed delta and applies lower then upper comparisons, preserving negative-bound
+behavior. Their surrounding gameplay class and channel meanings are not claimed.
+Unknown table/index layouts and exceptional arithmetic retain the translations.
+
+Both Windows configurations pass twenty-five suites. A new equivalence suite
+compares 4,128 cases against both retained routines, including the retained nested
+callee in the adjustment oracle. It checks whole sparse-memory fixtures, aliases,
+unaligned fields, all rounding/starting flush modes, integer extremes, source
+exceptions, unmasked exact cases, return/condition/carry state, preserved registers
+and indirect registration. Of these fixtures, 3,001 take the native path.
+An additional 2,064 executions test production composition, including 96 cases
+where a retained outer caller uses a native nested limit calculation.
+Portable tests cover editable limit inputs, 64-bit carry, explicit bound order,
+signed zeros and rejection without mutation. A fresh-profile 24-second Direct3D
+Release startup reaches menu installation and frame pacing without logged errors;
+both EXE and Direct3D plugin privacy scans pass. These checks do not establish
+new gameplay coverage, a performance gain or corrected high-FPS animation timing.
+
+Development now has thirty-one typed native entry points. Alpha 7 remains the
+published release with twenty-six. Full readable-C++ conversion remains active.

@@ -20,7 +20,8 @@ include(CTest)
 
 add_library(n3_native STATIC src/native/frame_clock.cpp src/native/shape_bounds.cpp src/native/vector_ops.cpp
     src/native/frame_countdown.cpp src/native/scalar_math.cpp src/native/box_geometry.cpp
-    src/native/shape_projection.cpp src/native/delay_block.cpp src/native/feedback_delay.cpp)
+    src/native/shape_projection.cpp src/native/delay_block.cpp src/native/feedback_delay.cpp
+    src/native/bounded_value.cpp)
 target_include_directories(n3_native PUBLIC src)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(n3_native PRIVATE -ffp-model=strict -ffp-contract=off)
@@ -68,6 +69,9 @@ if(BUILD_TESTING)
     add_executable(n3_native_feedback_test tests/native_feedback_test.cpp)
     target_link_libraries(n3_native_feedback_test PRIVATE n3_native)
     add_test(NAME native_feedback_delay COMMAND n3_native_feedback_test)
+    add_executable(n3_native_bounded_value_test tests/native_bounded_value_test.cpp)
+    target_link_libraries(n3_native_bounded_value_test PRIVATE n3_native)
+    add_test(NAME native_bounded_value COMMAND n3_native_bounded_value_test)
     add_executable(n3_game_data_test tests/game_data_test.cpp)
     target_link_libraries(n3_game_data_test PRIVATE n3_game_data)
     add_test(NAME game_data_import COMMAND n3_game_data_test)
@@ -97,6 +101,7 @@ set(N3_SOURCES
     src/shape_projection_hooks.cpp
     src/delay_block_hooks.cpp
     src/feedback_delay_hooks.cpp
+    src/bounded_value_hooks.cpp
     src/game_setup.cpp
     src/frame_rate.cpp
     src/display_settings.cpp
@@ -171,6 +176,12 @@ if(BUILD_TESTING)
     target_link_libraries(n3_feedback_delay_test PRIVATE n3_native n3_recomp rex::runtime)
     rexglue_apply_target_settings(n3_feedback_delay_test)
     add_test(NAME feedback_delay_equivalence COMMAND n3_feedback_delay_test)
+    add_executable(n3_bounded_value_test tests/bounded_value_test.cpp src/bounded_value_hooks.cpp)
+    target_include_directories(n3_bounded_value_test PRIVATE src)
+    target_compile_definitions(n3_bounded_value_test PRIVATE N3_BOUNDED_ORACLE_SWITCH)
+    target_link_libraries(n3_bounded_value_test PRIVATE n3_native n3_recomp rex::runtime)
+    rexglue_apply_target_settings(n3_bounded_value_test)
+    add_test(NAME bounded_value_equivalence COMMAND n3_bounded_value_test)
     add_executable(n3_profile_config_test tests/profile_config_test.cpp src/profile_config.cpp)
     target_include_directories(n3_profile_config_test PRIVATE src)
     target_link_libraries(n3_profile_config_test PRIVATE rex::runtime)

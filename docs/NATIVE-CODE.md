@@ -348,6 +348,47 @@ the original 40-byte caller scratch, advances `r4` by 1024 and returns the wrapp
 cursor in `r5`. `f1/f2`, carry and nonvolatile state are preserved. Native snapshots
 use per-thread storage, and the shared core requires the existing FP contract.
 
+## Table-derived limits and bounded updates
+
+`src/native/bounded_value.h` separates channel selection, limit calculation and
+value adjustment from guest tables. Entries `0x8209DBF0` and `0x8209D718` use it
+through `src/bounded_value_hooks.cpp`. The surrounding class, channel meanings
+and gameplay units remain unidentified; these names describe the verified work.
+
+The limit entry chooses a channel from `+676`. For kind 1000 at `+300`, it first
+adds `+780` with 32-bit wrap and caps signed results at least 9 to channel 8.
+Negative wrapped results are not clamped upward. The adapter selects a signed
+word from a 48-byte table record using row `+304` and category byte `+969`.
+It supports whole, forward table ranges and channels 0 through 11; unknown
+geometry, indices and channels retain the original path, including its traps.
+
+`ValueLimitParameters` exposes the selected signed base, signed percentage
+adjustment (`+728`), unsigned additive offset (`+732`), percentage unit and
+baseline. Original constants are 0.01f and 1. Integer sources round to float32;
+the percentage/baseline stage uses a float32-rounded double FMA, followed by a
+float32-rounded product with the base. The product truncates toward zero with
+the original positive saturation. Both the truncated bits and additive offset
+are zero-extended before a 64-bit addition. Negative products below INT_MIN,
+exceptional/subnormal source constants and nonfinite trials retain the original
+conversion path. Rejected trials leave native outputs unchanged.
+
+The adjustment entry updates float field `+664` by a signed integer delta from
+`r4`, rounded to float32 before addition and rounded again afterward. It applies
+the original lower comparison (zero in the game) before the signed low-32-bit
+limit rounded to float32. A negative upper limit can therefore replace a
+lower-clamped result. This deliberately preserves the two comparisons rather
+than assuming ordered bounds. `BoundedValueUpdate` exposes intermediate and
+clamp results for native callers; source exceptions and nonfinite trials reject
+without changing state or update details.
+
+The adapters preserve the full 64-bit limit return in `r3`, final condition/carry
+behavior, `f0/f1/f2`, nonvolatile registers and LR semantics. All read regions are
+checked against original caller scratch: 16 bytes for the limit and a conservative
+128 bytes for adjustment, including its nested callee. They restore FP controls
+and status before unsupported-case fallback. The models require caller rounding,
+disabled scalar flush and masked traps. No gameplay retiming or new stat menu is
+introduced; concrete class roles still need matched-scene tracing.
+
 ## Verification
 
 `native_frame_clock` runs in the portable component build on Windows, Linux and
@@ -468,6 +509,25 @@ These replacements do not fix accelerated animation at higher FPS. Animation, co
 scripted-event update paths still require matched-scene tracing and comparisons
 before replacing or retiming them. Keep those changes separate from extraction
 of an already-understood clock primitive.
+
+`native_bounded_value` checks channel wrapping/capping, percentage and baseline
+edits, truncation and positive saturation, 64-bit offset carry, bound order,
+signed zeros, rejection without mutation and integer rounding in all four modes.
+`bounded_value_equivalence` compares both retained entries in 4,128 cases using
+sparse synthetic guest memory for the original table and constant addresses.
+It covers table rows/categories, channels outside the native subset, signed
+integer extremes, exceptional float sources, aliases with state or stack,
+unaligned fields, original constants and altered values, plus unmasked exact
+arithmetic. Whole-fixture bytes match after normalizing only untouched native
+scratch; fallback cases compare those bytes too. Ordinary fixtures assert the
+native path, and checks include return/condition/carry state, `f0/f1/f2`, all
+nonvolatile GPR/FPRs, indirect registration and FP controls. A switch compiled
+only into the test target forces the retained nested limit callee when running
+the retained adjustment routine, preserving an independent oracle. A further
+2,064 executions disable that switch and compare the production composition;
+96 explicitly exercise a retained outer caller with a native nested limit. Only
+the unused 16-byte nested scratch is normalized in those mixed cases. These
+tests do not establish the surrounding gameplay role or every sticky FP status bit.
 
 ## Adding the next module
 
