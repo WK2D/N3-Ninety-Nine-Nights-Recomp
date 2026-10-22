@@ -20,8 +20,8 @@ void InstallGraphicsAudit(rex::ui::WindowedAppContext& context) {
     // Let the initial movies finish before exercising the same setters as the
     // native menu. Probe profiles are isolated by the invoking test harness.
     constexpr std::array<std::array<uint32_t, 5>, 6> cases{{
-      {0,1,0,0,1}, {1,2,1,1,0}, {2,3,2,2,1},
-      {0,4,3,1,0}, {1,5,0,0,1}, {2,0,1,2,0}}};
+      {0,0,0,0,1}, {1,1,1,1,0}, {2,2,2,2,1},
+      {0,3,3,1,0}, {1,4,0,0,1}, {2,0,1,2,0}}};
     auto wait = [&stop](int ticks) {
       for (int tick = 0; tick < ticks && !stop.stop_requested(); ++tick)
         std::this_thread::sleep_for(std::chrono::milliseconds(100));

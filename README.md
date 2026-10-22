@@ -73,7 +73,7 @@ Use up/down to select a row and left/right to change its value. **B** returns.
 Changes apply immediately and are saved to the local profile.
 
 - **Frame rate:** 30, 40, or 60 FPS; 30 is the default.
-- **Anisotropic filtering:** Game default, Off, 2x, 4x, 8x, or 16x.
+- **Anisotropic filtering:** 1x, 2x, 4x, 8x, or 16x.
 - **Display resolution:** 720p, 1080p, 1440p, or 4K window/output size.
 - **Render resolution:** 720p (1x), 1440p (2x), or 4K (3x) internal rendering.
 - **VSync:** On or Off, applied live to Windows presentation.

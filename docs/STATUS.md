@@ -95,10 +95,20 @@ have native automated coverage.
 
 The development build adds Graphics below Tutorial on the main menu and a
 separate native page derived from the Options layout. The page contains 30,
-40, and 60 FPS choices plus Game default / Off / 2x / 4x / 8x / 16x anisotropic
+40, and 60 FPS choices plus 1x / 2x / 4x / 8x / 16x anisotropic
 filtering. New installations default to 30 FPS. Settings apply without a restart
 and persist through the existing local profile configuration. Original Options
 retains its audio, camera, vibration, and contrast controls.
+
+Anisotropic filtering now uses only numeric choices. 1x explicitly disables
+anisotropy; the other choices select their matching sampler limits. Old Game
+default, legacy 1x-enum and unsupported overrides normalize to 1x on startup and
+when opening Graphics. Existing 2x/4x/8x/16x overrides retain their values. The
+RelWithDebInfo build passes all twenty-three suites. A fresh-profile 55-second
+Direct3D graphics audit verifies all five actual sampler limits, all display and
+render presets, and both VSync presentation policies. This is renderer evidence,
+not a visual gameplay or texture-quality comparison. Published Alpha 6 retains
+its previous labels until the next release.
 
 The page also separates display/output size (720p, 1080p, 1440p, 4K) from internal
 rendering (720p/1x, 1440p/2x, 4K/3x). Display changes resize a normal window on the

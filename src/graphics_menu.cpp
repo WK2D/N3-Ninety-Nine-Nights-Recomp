@@ -5,6 +5,7 @@
 #include "profile_config.h"
 #include "graphics_notification.h"
 #include "graphics_settings.h"
+#include "graphics_filtering.h"
 #include <rex/runtime.h>
 #include <rex/ppc.h>
 #include <rex/cvar.h>
@@ -30,7 +31,6 @@ bool installed = false, pending = false;
 bool focus_pending = false;
 uint32_t layout_name = 0, graphics_owner = 0, graphics_root = 0;
 std::filesystem::path config_path;
-constexpr std::array<int, 6> filters{-1, 0, 2, 3, 4, 5};
 constexpr std::array<uint32_t, 4> display_heights{720, 1080, 1440, 2160};
 uint32_t Read32(uint8_t* base, uint32_t at) { return rex::memory::load_and_swap<uint32_t>(base + at); }
 void Write32(uint8_t* base, uint32_t at, uint32_t n) { rex::memory::store_and_swap<uint32_t>(base + at, n); }
@@ -65,6 +65,7 @@ void Persist() {
 bool InstallGraphicsMenu(rex::Runtime& runtime, const std::filesystem::path& root,
                          const std::filesystem::path& profile) {
   installed = false; pending = false; focus_pending = false; graphics_owner = graphics_root = 0;
+  ConfiguredAnisotropicChoice();
   auto* vfs = runtime.file_system();
   std::vector<std::string> links;
   bool mounted = false;
@@ -88,7 +89,7 @@ bool InstallGraphicsMenu(rex::Runtime& runtime, const std::filesystem::path& roo
       "\r\n1975\t\"Display\"\r\n1976\t\"Rendering\""
       "\r\n1977\t\"@(DPad_Small) Select  @(B) Back\""
       "\r\n1978\t\"Render resolution\"\r\n1979\t\"Display resolution\""
-      "\r\n1980\t\"Game default\"\r\n1981\t\"Off\"\r\n1982\t\"2x\"\r\n1983\t\"4x\"\r\n1984\t\"8x\"\r\n1985\t\"16x\""
+      "\r\n1980\t\"1x\"\r\n1981\t\"2x\"\r\n1982\t\"4x\"\r\n1983\t\"8x\"\r\n1984\t\"16x\""
       "\r\n1989\t\"Filtering\"\r\n1990\t\"30 FPS\"\r\n1991\t\"40 FPS\"\r\n1992\t\"60 FPS\""
       "\r\n1997\t\"Frame rate\"\r\n1998\t\"Anisotropic filtering\"\r\n1999\t\"Graphics\"\r\n";
     for (const auto* lang : {"ENG", "FRA", "GER", "ITA", "SPA"}) {
@@ -156,13 +157,10 @@ extern "C" void sub_821A8030(PPCContext& ctx, uint8_t* base) {
   pending = false;
   const auto fps = Call(ctx, base, sub_821CD7C0, graphics_root, 0x03906001);
   const auto aniso = Call(ctx, base, sub_821CD7C0, graphics_root, 0x03906002);
-  int current = -1;
-  try { current = std::stoi(rex::cvar::GetFlagByName("anisotropic_override")); } catch (...) {}
-  uint32_t af_index = 0;
-  for (uint32_t i = 0; i < filters.size(); ++i) if (filters[i] == current) af_index = i;
+  const auto af_index = ConfiguredAnisotropicChoice();
   const auto selected = ConfiguredFrameRate();
   ConfigureSlider(ctx, base, fps, 1990, 3, selected == 60 ? 2 : selected == 40 ? 1 : 0);
-  ConfigureSlider(ctx, base, aniso, 1980, 6, af_index);
+  ConfigureSlider(ctx, base, aniso, 1980, n3::graphics::kAnisotropicOverrides.size(), af_index);
   const auto display = Call(ctx, base, sub_821CD7C0, graphics_root, 0x03906003);
   const auto render = Call(ctx, base, sub_821CD7C0, graphics_root, 0x03906004);
   uint32_t display_index = 0;

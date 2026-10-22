@@ -119,7 +119,7 @@ std::vector<uint8_t> BuildGraphicsLayout(std::span<const uint8_t> b) {
       block = slider_template; block[2] = String(4, name);
       Set(block, "CLASSID", 0x03906000 + ordinal);
       for (size_t j = 0; j + 4 < block.size(); ++j)
-        if (block[j].text == "RANGE") block[j + 4] = Number(ordinal == 2 ? 5 : ordinal == 3 ? 3 : ordinal == 5 ? 1 : 2);
+        if (block[j].text == "RANGE") block[j + 4] = Number(ordinal == 2 ? 4 : ordinal == 3 ? 3 : ordinal == 5 ? 1 : 2);
     }
     if (!visible.contains(name)) Set(block, "ATTRIBUTE", 16);
     if (name == "BT_OptionBGM" || name == "TT_OptionVol") Set(block, "TEXTID", 1997);
