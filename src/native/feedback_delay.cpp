@@ -24,11 +24,12 @@ float MultiplyAdd(float first, float second, float third) {
 template<size_t HistorySize>
 bool Process(FeedbackDelayState& state, std::span<float, HistorySize> history,
              std::span<float, 257> buffer) {
-  static_assert(HistorySize == 128 || HistorySize == 256);
+  static_assert(HistorySize == 128 || HistorySize == 256 || HistorySize == 512);
   const std::array<Storage, 3> storage{{{reinterpret_cast<uintptr_t>(&state), sizeof(state)},
       {reinterpret_cast<uintptr_t>(history.data()), history.size_bytes()},
       {reinterpret_cast<uintptr_t>(buffer.data()), buffer.size_bytes()}}};
-  if (state.cursor || !Separate(storage[0], storage[1]) || !Separate(storage[0], storage[2]) ||
+  const bool supported_cursor = state.cursor == 0 || (HistorySize == 512 && state.cursor == 256);
+  if (!supported_cursor || !Separate(storage[0], storage[1]) || !Separate(storage[0], storage[2]) ||
       !Separate(storage[1], storage[2]) || !SupportedSource(state.output_gain) ||
       !SupportedSource(state.feedback_gain) || !SupportedSource(state.previous_output) ||
       !std::all_of(history.begin(), history.end(), SupportedSource) ||
@@ -38,19 +39,20 @@ bool Process(FeedbackDelayState& state, std::span<float, HistorySize> history,
   std::copy(history.begin(), history.end(), next_history.begin());
   next_buffer[0] = state.previous_output;
   for (uint32_t index = 0; index < 256; ++index) {
-    const auto delayed = next_history[(index - state.delay) & (HistorySize - 1)];
+    const auto position = state.cursor + index;
+    const auto delayed = next_history[(position - state.delay) & (HistorySize - 1)];
     const auto feedback = MultiplyAdd(state.feedback_gain, delayed, buffer[index]);
     const auto output = MultiplyAdd(state.output_gain, feedback, delayed);
     // Feedback may overflow or make later arithmetic exceptional. Publish
     // nothing unless the whole block succeeds. Generated subnormals are valid.
     if (!Finite(feedback) || !Finite(output)) return false;
-    next_history[index & (HistorySize - 1)] = feedback;
+    next_history[position & (HistorySize - 1)] = feedback;
     next_buffer[index + 1] = output;
   }
   std::copy(next_history.begin(), next_history.end(), history.begin());
   std::copy(next_buffer.begin(), next_buffer.end(), buffer.begin());
   state.previous_output = next_buffer.back();
-  state.cursor = 0;
+  state.cursor = (state.cursor + 256) & (HistorySize - 1);
   return true;
 }
 }
@@ -59,6 +61,10 @@ bool TryProcessFeedbackDelay(FeedbackDelayState& state, std::span<float, 256> hi
   return Process(state, history, buffer);
 }
 bool TryProcessFeedbackDelay(FeedbackDelayState& state, std::span<float, 128> history,
+                            std::span<float, 257> buffer) {
+  return Process(state, history, buffer);
+}
+bool TryProcessFeedbackDelay(FeedbackDelayState& state, std::span<float, 512> history,
                             std::span<float, 257> buffer) {
   return Process(state, history, buffer);
 }

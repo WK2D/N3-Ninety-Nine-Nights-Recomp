@@ -516,3 +516,27 @@ Apple Silicon at conversion commit `40ed8d2`; both Windows game configurations
 pass twenty-three suites. The numeric filtering audit verifies actual sampler
 limits from 1x through 16x, display/render dimensions and VSync presentation.
 See the release notes for packaging checks and unchanged gameplay limits.
+
+## Native 512-sample feedback history
+
+Entry `0x8253C480` now uses the typed feedback model with a 512-sample history.
+Each call processes 256 inputs, writes one contiguous half, preserves the other
+half, and alternates the cursor between 0 and 256. The original call sites chain
+separate state objects over shared sample buffers; the native interface keeps
+delay, gains, history and cached output explicit without changing that routing.
+The adapter preserves pointer/cursor results, `f1/f2`, carry, condition flags and
+nonvolatile registers. Unsupported cursors and exceptional/alias/unmasked cases
+retain the original translation. Trial rejection publishes no partial writes.
+
+Both Windows configurations pass twenty-three suites. Feedback equivalence now
+compares all three history lengths in 7,536 block cases across every rounding and
+starting flush mode. The 512-sample cases cover both initial halves, eight-block
+chains, modulo-delay boundaries, untouched history, source exceptions, aliases,
+late-overflow rollback from either half, finite saturation and unmasked exact
+arithmetic. Portable fixtures also check cursor alternation, cached-output
+continuity and preservation of the untouched half. A fresh-profile 24-second
+Direct3D Release startup reaches menu installation and frame pacing without
+logged errors; its harness stops only its own child. Both EXE and Direct3D plugin
+privacy scans pass. This brings development to twenty-seven typed native entries;
+Alpha 7 contains twenty-six. These checks do not establish listening quality,
+new gameplay coverage, a speedup or corrected higher-FPS animation timing.

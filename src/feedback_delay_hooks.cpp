@@ -6,6 +6,7 @@
 
 extern "C" void __imp__sub_8253C310(PPCContext&, uint8_t*);
 extern "C" void __imp__sub_8253BFA8(PPCContext&, uint8_t*);
+extern "C" void __imp__sub_8253C480(PPCContext&, uint8_t*);
 namespace {
 uint32_t ReadWord(uint8_t* base, uint32_t address) {
   return rex::memory::load_and_swap<uint32_t>(base + address);
@@ -63,4 +64,7 @@ extern "C" void sub_8253C310(PPCContext& ctx, uint8_t* base) {
 }
 extern "C" void sub_8253BFA8(PPCContext& ctx, uint8_t* base) {
   if (!Process<128>(ctx, base)) __imp__sub_8253BFA8(ctx, base);
+}
+extern "C" void sub_8253C480(PPCContext& ctx, uint8_t* base) {
+  if (!Process<512>(ctx, base)) __imp__sub_8253C480(ctx, base);
 }

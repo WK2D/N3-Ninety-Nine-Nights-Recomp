@@ -29,8 +29,8 @@ template<size_t HistorySize> void CheckHistory() {
     buffer.fill(1);
     Require(TryProcessFeedbackDelay(state, history, buffer), "Ordinary feedback block rejected");
     Require(buffer[0] == (block == 1 ? 42.0f : 320.0f * (block - 1) - 1) &&
-            buffer[256] == 320.0f * block - 1 && history.back() == 256.0f * block &&
-            state.previous_output == buffer[256] && state.cursor == 0,
+            buffer[256] == 320.0f * block - 1 && history[(block * 256 - 1) % HistorySize] == 256.0f * block &&
+            state.previous_output == buffer[256] && state.cursor == (block * 256) % HistorySize,
             "Feedback history or cached output continuity changed");
   }
   auto wrapped_state = state; wrapped_state.delay += HistorySize;
@@ -39,10 +39,21 @@ template<size_t HistorySize> void CheckHistory() {
           TryProcessFeedbackDelay(wrapped_state, wrapped_history, wrapped_buffer) &&
           BitsEqual(history, wrapped_history) && BitsEqual(buffer, wrapped_buffer), "Delay modulo changed");
   state = {0, 1, 0, 42, 0}; history.fill(2); buffer.fill(1);
+  constexpr auto first_pass = std::min(HistorySize, size_t{256});
   Require(TryProcessFeedbackDelay(state, history, buffer) && buffer[0] == 42 &&
-          std::all_of(buffer.begin() + 1, buffer.begin() + HistorySize + 1, [](float value) { return value == 3; }) &&
-          std::all_of(buffer.begin() + HistorySize + 1, buffer.end(), [](float value) { return value == 2; }),
+          std::all_of(buffer.begin() + 1, buffer.begin() + first_pass + 1, [](float value) { return value == 3; }) &&
+          std::all_of(buffer.begin() + first_pass + 1, buffer.end(), [](float value) { return value == 2; }),
           "Delay zero must read old history before feedback storage");
+  if constexpr (HistorySize == 512) {
+    Require(state.cursor == 256 && std::all_of(history.begin() + 256, history.end(),
+            [](float value) { return value == 2; }), "First half must leave the second half unchanged");
+    buffer.fill(4);
+    Require(TryProcessFeedbackDelay(state, history, buffer) && state.cursor == 0 && buffer[0] == 3 &&
+            std::all_of(buffer.begin() + 1, buffer.end(), [](float value) { return value == 6; }) &&
+            std::all_of(history.begin(), history.begin() + 256, [](float value) { return value == 1; }) &&
+            std::all_of(history.begin() + 256, history.end(), [](float value) { return value == 4; }),
+            "Second half must preserve the first half and wrap the cursor");
+  }
   state = {1, 1, 0.5f, 0, 0}; history.fill(0); buffer.fill(0); buffer[0] = 1;
   buffer[256] = std::bit_cast<float>(0x7f812345u); // Unread output-only tail.
   Require(TryProcessFeedbackDelay(state, history, buffer) && buffer[1] == 1 && buffer[2] == 1.5f &&
@@ -72,6 +83,7 @@ int main() {
   try {
     CheckHistory<128>();
     CheckHistory<256>();
+    CheckHistory<512>();
     std::cout << "Editable feedback/delay, chained history, impulse decay and transactional rejection passed\n";
   } catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
 }

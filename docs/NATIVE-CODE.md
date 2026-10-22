@@ -262,8 +262,8 @@ Native arithmetic uses caller rounding, disabled scalar flush and masked traps.
 
 `src/native/feedback_delay.h` adds `FeedbackDelayState` with an explicit delay,
 output gain, feedback gain, previous output and cursor. `TryProcessFeedbackDelay`
-implements entries `0x8253C310` (256 history samples) and `0x8253BFA8` (128 history
-samples) through `src/feedback_delay_hooks.cpp`. The verified guest fields are
+implements entries `0x8253BFA8` (128 history samples), `0x8253C310` (256), and
+`0x8253C480` (512) through `src/feedback_delay_hooks.cpp`. The verified guest fields are
 delay at `+0`, output/feedback gains at `+4/+8`, previous
 output at `+12`, cursor at `+16` and history starting at `+24`. `r4` points to a
 257-float in-place buffer; its first 256 values are input samples.
@@ -275,12 +275,15 @@ delayed value produces the new output. The output buffer begins with the old
 cached output, followed by 256 new results; the final result becomes the next
 cache. Delays wrap modulo the history size, including delay zero's old-history
 read. The 128-sample entry makes two history passes per block: the second half
-reads the updated first-half history. Native callers can edit both gains and
-delay without registers or guest addresses.
+reads the updated first-half history. The 512-sample entry writes one 256-sample
+half per call, alternating cursors 0 and 256. It preserves the other half and
+advances the cursor modulo 512. Native callers can edit both gains and delay
+without registers or guest addresses.
 
-The supported cursor is zero because the original writes a contiguous full
-history pass before resetting its pointer. Other cursors retain the original
-path. Source subnormals, NaNs/infinities, overlapping storage, wrapping guest ranges, original stack
+The supported cursor is zero for the 128/256 variants and either 0 or 256 for
+the 512 variant. The originals write contiguous blocks without per-sample write
+wrapping; other cursors retain the original path. Source subnormals,
+NaNs/infinities, overlapping storage, wrapping guest ranges, original stack
 overlaps and unmasked traps also fall back. The source buffer's output-only last
 element is not interpreted as an input value. Generated subnormals are preserved.
 
@@ -289,7 +292,7 @@ history/output and commits only after the entire block has finite trial results;
 rejection changes no caller state or buffers. The adapter restores saved FP
 controls/status before invoking the retained translation. Directed-rounding
 overflow that remains finite is supported and retains its saturated value.
-Two bounded local staging arrays use about 2 KiB; the adapter's guest snapshots
+Two bounded local staging arrays use at most about 3 KiB; the adapter's guest snapshots
 use private per-thread storage. Processing invokes no callbacks and remains on
 the existing owner thread. Caller rounding, disabled scalar flush and masked
 traps are required by the native model. Effect routing and listening validation
@@ -297,9 +300,10 @@ are still pending; no gain or timing option is added to the game.
 
 The shorter kernel leaves original input samples 249 and 248 in `f1` and `f2`
 and sets carry from the unsigned delay comparison with 2. Its adapter reproduces
-these results as well as the common 1,024-byte input-pointer advance, zero cursor
-and final condition flags. The 256-sample entry preserves its original `f1/f2`
-and carry behavior. Both original translations remain available for fallback.
+these results as well as the common 1,024-byte input-pointer advance and final
+condition flags. The 256/512 entries preserve their original `f1/f2` and carry
+behavior. All three return the resulting cursor in `r5` and store it in state.
+Original translations remain available for fallback.
 
 ## Verification
 
@@ -389,9 +393,10 @@ tests or a performance measurement.
 modulo delays, old-history reads, impulse decay through generated subnormals,
 the unread output tail and rejection without partial publication, including late
 overflow after the shorter history has wrapped. `feedback_delay_equivalence`
-compares both retained entries in 5,024 block
+compares all three retained entries in 7,536 block
 cases across all four rounding modes and both starting flush modes. It covers
-eight-block chains, positive/negative overflow and finite saturation, generated
+eight-block chains, alternating 512-sample history halves and cursor wrap,
+positive/negative overflow and finite saturation, generated
 subnormals, source exceptions, unsupported cursors, unaligned/overlapping buffers,
 stack aliases and unmasked exact arithmetic. Whole-buffer checks normalize only
 unchanged native caller scratch (32 bytes); fallback cases compare every byte.

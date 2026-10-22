@@ -11,6 +11,8 @@ extern "C" void sub_8253BFA8(PPCContext&, uint8_t*);
 extern "C" void __imp__sub_8253BFA8(PPCContext&, uint8_t*);
 extern "C" void sub_8253C310(PPCContext&, uint8_t*);
 extern "C" void __imp__sub_8253C310(PPCContext&, uint8_t*);
+extern "C" void sub_8253C480(PPCContext&, uint8_t*);
+extern "C" void __imp__sub_8253C480(PPCContext&, uint8_t*);
 extern PPCFuncMapping PPCFuncMappings[];
 void Require(bool value, const char* message) {
   if (!value) throw std::runtime_error(message);
@@ -26,9 +28,10 @@ int main() {
   try {
     using Function = void (*)(PPCContext&, uint8_t*);
     struct Entry { uint32_t address, history_size; Function original, replacement; };
-    const std::array<Entry, 2> entries{{
+    const std::array<Entry, 3> entries{{
         {0x8253BFA8, 128, __imp__sub_8253BFA8, sub_8253BFA8},
-        {0x8253C310, 256, __imp__sub_8253C310, sub_8253C310}}};
+        {0x8253C310, 256, __imp__sub_8253C310, sub_8253C310},
+        {0x8253C480, 512, __imp__sub_8253C480, sub_8253C480}}};
     std::mt19937 random(0x4644424b);
     uint32_t comparisons = 0;
     for (const auto& entry : entries) {
@@ -68,11 +71,20 @@ int main() {
           store(object, sample < 8 ? boundaries[sample] : random());
           store(object + 4, 0x3f000000); store(object + 8, 0x3e000000);
           store(object + 12, 0x40e00000); store(object + 16, 0);
+          if (history_size == 512 && (sample < 96 || sample >= 192))
+            store(object + 16, sample % 2 ? 256 : 0);
+          if (sample >= 16 && sample < 32) {
+            const std::array<uint32_t, 8> delays{0, 1, 2, 3, history_size - 1, history_size, history_size + 1, 0xffffffffu};
+            store(object, delays[sample % delays.size()]);
+          }
           if (sample >= 64 && sample < 96) {
             constexpr std::array<uint32_t, 6> exceptions{1, 0x80000001u, 0x7f800000u, 0xff800000u, 0x7fc12345u, 0x7f812345u};
             store(sample % 3 == 0 ? object + 4 : sample % 3 == 1 ? buffer + 12 : object + 24, exceptions[sample % exceptions.size()]);
           }
-          if (sample >= 96 && sample < 128) store(object + 16, sample % 2 ? history_size - 1 : history_size);
+          if (sample >= 96 && sample < 128) {
+            const std::array<uint32_t, 4> cursors{1, 255, history_size - 1, history_size};
+            store(object + 16, cursors[sample % cursors.size()]);
+          }
           if (sample >= 192) {
             store(object, 1); store(object + 4, 0x3f800000); store(object + 12, 0);
             store(object + 8, sample < 224 ? 0x40000000 : sample < 256 ? 0x3f000000 : 0);
