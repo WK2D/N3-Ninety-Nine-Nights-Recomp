@@ -1,4 +1,4 @@
-N3 Recompiled - v0.1.0-alpha.4 (Windows x64)
+N3 Recompiled - v0.1.0-alpha.5 (Windows x64)
 
 GET STARTED
 1. Extract the entire Windows x64 ZIP to a writable folder.
@@ -57,6 +57,13 @@ n3_import.exe import "path\to\your-disc.iso" "new\game-folder"
 n3.exe --game_data_root "path\to\game-folder"
 Explicit game-data folders are verified before startup. Import destinations
 must not exist; unsuccessful/cancelled imports clean up their newly created tree.
+
+NATIVE ENGINE MODULES
+This release replaces the frame-clock initializer and five sphere/capsule/box
+bounds helpers with typed native C++. Tests compare them against retained
+translated routines. Unrecognized clocks and exceptional/overlapping shape
+inputs keep the original code path. This does not establish a speed improvement
+or correct the accelerated animations in higher frame-rate modes.
 
 ALPHA STATUS
 The first mission, the following cutscene, and writing a save have been exercised

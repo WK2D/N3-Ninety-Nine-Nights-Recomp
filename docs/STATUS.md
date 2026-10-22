@@ -304,6 +304,16 @@ Release startup presents through Direct3D 12 without logged errors until its own
 harness deadline; this does not exercise every shape during gameplay. Executable
 and GPU plugin privacy scans pass.
 
+## Alpha 5 package
+
+Alpha 5 packages the portable importer and native frame-clock/shape-bounds work
+on Windows x64 with Direct3D 12. Both Windows configurations pass eleven suites;
+the portable component CI passes on Windows, Linux and Apple Silicon. Packaged
+file hashes, embedded icon resources and binary privacy scans are checked before
+publication. An isolated packaged startup check uses a fresh local profile and
+the supported game data; it does not establish further mission coverage.
+Higher-FPS animation timing remains unresolved. Vulkan is not packaged.
+
 ## Next validation work
 
 1. Measure original-mode gameplay in the same scene and correct the accelerated
