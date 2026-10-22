@@ -353,8 +353,19 @@ Both Windows configurations pass fifteen suites. An isolated 24-second Release
 startup presents through Direct3D 12 at requested 60 FPS without logged errors
 until the harness stops its own child. Binary privacy scans pass. These checks
 do not identify every caller's gameplay role, establish further mission coverage,
-or correct accelerated animation. Alpha 5 remains the published release; this
-batch extends the development build.
+or correct accelerated animation. This batch is included in Alpha 6.
+
+## Alpha 6 package
+
+Alpha 6 packages the vector/cached-channel and countdown/scalar/bit-field batches,
+bringing the typed native replacements to eighteen. Both Windows configurations
+pass fifteen suites, and six portable component suites pass CI on Windows,
+Linux and Apple Silicon. The playable package remains Windows x64 with Direct3D
+12. Package hashes, embedded icon resources, source correspondence and privacy
+checks are verified, followed by an isolated packaged startup with a fresh local
+profile. The package contains no game files or profiles and requires the player's
+own supported disc data. These checks do not extend the previously tested
+opening-route gameplay coverage or resolve higher-FPS animation timing.
 
 ## Next validation work
 
