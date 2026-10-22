@@ -262,9 +262,10 @@ Native arithmetic uses caller rounding, disabled scalar flush and masked traps.
 
 `src/native/feedback_delay.h` adds `FeedbackDelayState` with an explicit delay,
 output gain, feedback gain, previous output and cursor. `TryProcessFeedbackDelay`
-implements the entry at `0x8253C310` through `src/feedback_delay_hooks.cpp`. The
-verified guest fields are delay at `+0`, output/feedback gains at `+4/+8`, previous
-output at `+12`, cursor at `+16` and 256 history samples at `+24`. `r4` points to a
+implements entries `0x8253C310` (256 history samples) and `0x8253BFA8` (128 history
+samples) through `src/feedback_delay_hooks.cpp`. The verified guest fields are
+delay at `+0`, output/feedback gains at `+4/+8`, previous
+output at `+12`, cursor at `+16` and history starting at `+24`. `r4` points to a
 257-float in-place buffer; its first 256 values are input samples.
 
 For each sample the model reads the delayed history, computes a float32-rounded
@@ -272,12 +273,14 @@ double FMA of feedback gain, delayed value and input, and stores that result bac
 into history. A second rounded double FMA of output gain, feedback result and
 delayed value produces the new output. The output buffer begins with the old
 cached output, followed by 256 new results; the final result becomes the next
-cache. Delays wrap modulo 256, including delay zero's old-history read. Native
-callers can edit both gains and delay without registers or guest addresses.
+cache. Delays wrap modulo the history size, including delay zero's old-history
+read. The 128-sample entry makes two history passes per block: the second half
+reads the updated first-half history. Native callers can edit both gains and
+delay without registers or guest addresses.
 
 The supported cursor is zero because the original writes a contiguous full
-256-sample history. Other cursors retain the original path. Source subnormals,
-NaNs/infinities, overlapping storage, wrapping guest ranges, original stack
+history pass before resetting its pointer. Other cursors retain the original
+path. Source subnormals, NaNs/infinities, overlapping storage, wrapping guest ranges, original stack
 overlaps and unmasked traps also fall back. The source buffer's output-only last
 element is not interpreted as an input value. Generated subnormals are preserved.
 
@@ -291,6 +294,12 @@ use private per-thread storage. Processing invokes no callbacks and remains on
 the existing owner thread. Caller rounding, disabled scalar flush and masked
 traps are required by the native model. Effect routing and listening validation
 are still pending; no gain or timing option is added to the game.
+
+The shorter kernel leaves original input samples 249 and 248 in `f1` and `f2`
+and sets carry from the unsigned delay comparison with 2. Its adapter reproduces
+these results as well as the common 1,024-byte input-pointer advance, zero cursor
+and final condition flags. The 256-sample entry preserves its original `f1/f2`
+and carry behavior. Both original translations remain available for fallback.
 
 ## Verification
 
@@ -379,13 +388,14 @@ tests or a performance measurement.
 `native_feedback_delay` checks gain/delay edits, eight-block feedback continuity,
 modulo delays, old-history reads, impulse decay through generated subnormals,
 the unread output tail and rejection without partial publication, including late
-overflow. `feedback_delay_equivalence` compares the retained entry in 2,512 block
+overflow after the shorter history has wrapped. `feedback_delay_equivalence`
+compares both retained entries in 5,024 block
 cases across all four rounding modes and both starting flush modes. It covers
 eight-block chains, positive/negative overflow and finite saturation, generated
 subnormals, source exceptions, unsupported cursors, unaligned/overlapping buffers,
 stack aliases and unmasked exact arithmetic. Whole-buffer checks normalize only
 unchanged native caller scratch (32 bytes); fallback cases compare every byte.
-They also check native-path use, pointer/cursor results, preserved `f1/f2`, all
+They also check native-path use, pointer/cursor results, each entry's `f1/f2`, all
 nonvolatile GPR/FPRs, condition/carry flags, FP controls and indirect registration.
 These are kernel comparisons, not perceptual or performance measurements.
 

@@ -10,11 +10,14 @@ struct FeedbackDelayState {
 };
 // Processes 256 inputs in buffer[0..255], replacing buffer with the previous
 // output prefix and 256 new outputs. History stores the feedback-stage results.
-// Only cursor zero is supported: the original writes a contiguous full history.
-// Delay wraps modulo 256; zero delay reads old history before writing feedback.
+// Only cursor zero is supported: the original writes contiguous history passes.
+// Delay wraps modulo the history size; zero delay reads history before writing.
 // Valid storage must be disjoint. Caller provides its rounding mode, disabled
 // scalar flush and masked traps. Rejection leaves state/history/buffer unchanged,
 // though FP status can change during a rejected trial calculation.
 bool TryProcessFeedbackDelay(FeedbackDelayState& state, std::span<float, 256> history,
+                            std::span<float, 257> buffer);
+// The 128-sample variant makes two history passes for the same 256-input block.
+bool TryProcessFeedbackDelay(FeedbackDelayState& state, std::span<float, 128> history,
                             std::span<float, 257> buffer);
 }

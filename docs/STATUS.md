@@ -482,3 +482,27 @@ change is made.
 
 Other game revisions, title updates, platforms, and full-game playthroughs have
 not been validated. Keep performance and visual claims tied to measured scenes.
+
+
+## Native 128-sample feedback history
+
+Entry `0x8253BFA8` now shares the typed feedback state and transactional native
+core with the 256-sample kernel. It processes 256 inputs through two passes over
+128 history samples, retaining the updated first-pass history for the second
+pass. The adapter preserves its distinct final input loads in `f1/f2`, unsigned
+carry result, pointer advance and cursor reset. Unsupported cursors, exceptional
+sources, aliases, guest range wrapping and unmasked traps retain the translation.
+A failed trial restores FP state before fallback and publishes no partial writes.
+
+Both Windows configurations pass all twenty-three suites. Feedback equivalence
+now covers both entries in 5,024 block cases across every rounding/starting flush
+mode, including eight-block chains, modulo boundaries, input/history aliases,
+late overflow after history wrap, generated subnormals, unmasked exact cases,
+registers/flags and indirect registration. Portable fixtures exercise both history
+sizes, gain/delay edits, read-before-write behavior and rejection without mutation.
+A fresh-profile 24-second Direct3D Release startup reaches menu installation and
+frame pacing with no logged errors; only the harness's child is stopped. EXE and
+Direct3D plugin privacy scans pass in both configurations. These are kernel and
+startup checks, not new listening/gameplay coverage or a speedup measurement.
+Development now has twenty-six typed native entry points; published Alpha 6
+still contains eighteen. Vulkan remains parked.
