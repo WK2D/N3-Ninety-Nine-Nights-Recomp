@@ -504,6 +504,65 @@ progression and callback-driven state updates still need explicit ownership,
 callback and side-effect contracts; no gameplay role, speedup or new user-facing
 editing feature follows from the field offsets alone.
 
+## Direction normalization and conditional accumulation
+
+Two entries now share typed squared-length math without guest addresses or
+registers in the native API:
+
+| Entry | Native operation | Guest adapter |
+| --- | --- | --- |
+| `0x823B3C00` | `TryNormalizeDirection` | `src/direction_normalization_hooks.cpp` |
+| `0x8209D8E8` | `TryAccumulateDirection` | `src/direction_accumulation_hooks.cpp` |
+
+`src/native/direction_math.h` exposes component squares and the exact reduction
+tree used by the Windows translation: `(+0 + z*z) + (y*y + x*x)`, with each
+product and addition rounded separately to float32. Subnormal vector inputs
+become signed zero. Positive squared-length overflow is supported; mathematically
+tiny nonzero stages and rounded subnormal stages retain the original translation.
+Accepted results are independent of the host's input/output flush settings.
+
+Normalization compares the squared length with the supplied threshold. A greater
+or equal threshold produces four positive zeros without inspecting the raw
+fourth component. Otherwise it uses a separately rounded square root, reciprocal,
+Newton correction products, subtraction, sign-bit negation and final multiply.
+The fourth component does not contribute to length but is multiplied on the
+active path. `DirectionNormalization` exposes every stage. Finite normal/zero
+active stages are supported; unsupported tiny, nonfinite or overflowing stages
+reject without publishing results. The default guest threshold is `FLT_MIN`.
+
+The adapter reconstructs the original aligned vector loads and byte permutation,
+including the fourth lane's wraparound for unaligned inputs. It retains rounded-down
+scalar output addresses, all vector-register results, the scalar threshold result,
+condition fields and final enabled vector flush mode. It reproduces the 16-byte
+scratch and output-pointer home at entry SP plus 20, excluding dependencies on
+those writes before taking snapshots. Safe source/output overlaps remain native.
+Strict FP environment access keeps threshold conversions on the original side
+of the flush transitions. Both host and guest traps must be masked.
+
+`src/native/direction_accumulation.h` exposes current state, default/override
+directions, an explicit double amount, lower bound and squared override length.
+The override is chosen when its length comparison is greater or unordered;
+otherwise the default is used. Each selected component multiplies the amount
+and rounds to float32 before a separate addition to current state. Branch-specific
+addition operand order is retained. The unselected direction is not inspected.
+Finite generated scalar subnormals remain valid with scalar flush disabled.
+Unsupported inputs or nonfinite trial results change neither state nor details.
+
+Its guest adapter reads default direction `+64`, current vector `+564` and override
+direction `+576`, and writes only current XYZ plus the original 16-byte dot scratch.
+It preserves the actual vector-phase rounding when host and guest controls
+diverge, then unconditionally restores the guest scalar controls with flush off.
+Final scalar/vector registers, pointer upper halves and condition fields match
+the original branch. Unsafe scratch aliases, unmasked traps and unsupported
+math restore both saved FP words before the retained call. Neither native path
+claims identical transient sticky FP exception status.
+
+Normalization has 240 static direct call sites across 147 translated callers.
+The accumulation entry has indirect address references but no generated direct
+calls; its runtime use has not been observed. The direction-basis caller
+`0x8209D9B0`, which invokes normalization three times, remains translated.
+These contracts do not identify an animation/combat role or change game timing.
+
 ## Capped accumulation and optional accounting
 
 `src/native/capped_accumulator.h` exposes parameters, current integer value,
@@ -725,7 +784,24 @@ GPRs, `f0/f13`, preserved `f1`–`f4` and nonvolatile registers. Only untouched
 every byte and scalar register. Retained scopes must release before later native
 calls. Neither scalar-transferring native path claims every sticky FP status bit.
 
-Both Windows configurations pass thirty-four suites. A 24-second isolated
+`native_direction_math` checks the reduction tree, every normalization stage,
+threshold edits, signed zeros/DAZ, directed square-root rounding, unused fourth
+components, overflow and transactional rejection under all rounding/host flush
+combinations. `native_direction_accumulation` checks editable direction/state,
+both selections, double-product/float-add boundaries, generated subnormals and
+rollback.
+
+`direction_normalization_equivalence` compares 4,384 calls (3,184 native and
+1,200 retained). `direction_accumulation_equivalence` compares 2,816 calls
+(1,216 native). Both check every fixture byte, including native scratch and
+argument-home writes, all 32 GPRs/FPRs, all 128 VMX registers, all condition fields,
+LR/CTR/XER, preserved state, indirect registration and FP controls. Fixtures cover
+all rounding/starting flush modes, unaligned sources/outputs, safe overlaps,
+scratch aliases, exceptional values, underflow/overflow, unmasked exact calls and
+explicit host/guest control divergence. Sticky exception flags are outside the
+comparison; no scratch is normalized away for these two entries.
+
+Both Windows configurations pass thirty-eight suites. A 24-second isolated
 Direct3D Release startup reaches menu installation and frame pacing without
 logged errors; Windows EXE/plugin privacy scans pass. These are synthetic and
 startup checks, with no additional gameplay or performance claim.

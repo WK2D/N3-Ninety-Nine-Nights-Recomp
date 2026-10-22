@@ -13,7 +13,7 @@ the tested opening route. Full-game coverage remains unvalidated.
 - Generated 13,762 function assignments across 87 translated C++ source files.
 - Windows x64 Release and RelWithDebInfo compile and link succeed with Clang 20.1.8.
 - Runtime initializes Direct3D 12, input, audio, and XEX imports.
-- Five JavaScript extractor tests and thirty-four native regression suites pass.
+- Five JavaScript extractor tests and thirty-eight native regression suites pass.
 - A 30-second boot test survived until the harness stopped it, without the prior
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
@@ -756,3 +756,50 @@ result or full-platform support is claimed. Broader progression and callback-dri
 translated until explicit ownership, side-effect and callback interfaces are
 established. The full readable-C++ game-code goal remains active; Python
 build/release tooling is unchanged and Vulkan remains parked.
+
+## Native direction normalization and accumulation
+
+Entry `0x823B3C00` now uses explicit squared-length and normalization stages in
+`DirectionNormalization`. The native math retains the translated vector
+reduction order, signed-zero input flushing, threshold decision, rounded square
+root and reciprocal, separate Newton correction and final four-lane multiply.
+The raw fourth lane does not contribute to length. Its unused exceptional values
+are allowed on the zero branch. Unsupported tiny/nonfinite active arithmetic
+retains the translation. There are 240 static call sites across 147 translated
+callers; this is static reach rather than a gameplay execution measurement.
+
+Entry `0x8209D8E8` exposes current state, default/override directions and amount.
+It selects by the override's squared length, rounds each scaled component before
+adding it, and preserves branch-specific operand order and scalar subnormals.
+The guest fields remain `+64`, `+564` and `+576`. Data references suggest indirect
+dispatch, but its execution has not been observed in a gameplay trace.
+
+Both adapters reproduce original scratch writes and observable scalar/vector
+register results, reject source dependencies on scratch, and preserve the vector
+and scalar FP-control transitions. Normalization also writes the original
+output-pointer argument home. Strict FP environment access prevents a threshold
+conversion from moving past a flush-mode change. A square-root fixture was
+corrected after an isolated comparison showed the CRT and translated SIMD root
+agree in every rounding mode; no replacement math was needed for that check.
+
+Both Windows configurations pass thirty-eight suites. Normalization equivalence
+compares 4,384 calls (3,184 native); direction accumulation compares 2,816
+(1,216 native). All fixture bytes match without scratch normalization, together
+with all GPR/FPR/VMX registers, condition fields, LR/CTR/XER, indirect registration
+and FP controls. Cases include every rounding/starting flush mode, unaligned
+fields, safe output overlaps, scratch aliases, exceptional/tiny/overflow values,
+unmasked exact calls and divergent host/guest controls. Portable fixtures exercise
+editable state, exact math stages, directed rounding, host flush independence,
+generated scalar subnormals and rejection without publication. Sticky exception
+status is outside the scalar/vector comparison contract.
+
+A fresh-profile 24-second Direct3D Release startup reaches menu installation and
+frame pacing without logged errors. Both Windows EXEs and Direct3D plugins pass
+binary privacy scans. These checks do not establish new gameplay coverage,
+performance improvements or corrected higher-FPS animation timing.
+
+Development now includes forty-four typed native entry points. Alpha 7 remains
+the published build with twenty-six. The larger direction-basis caller
+`0x8209D9B0` remains translated and is the next connected conversion boundary.
+The full readable-C++ game-code conversion remains active; build/release tooling
+is unchanged and Vulkan remains parked.

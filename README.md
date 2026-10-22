@@ -159,8 +159,10 @@ pwsh -NoProfile -File tools/symbolize-fault.ps1
 
 The build runs native clock, geometry, vector, delay/mixing/feedback,
 table-derived value, percentage/modifier, capped accumulation, handle lookup,
-payload transfer/installation and countdown/scalar/bit tests, plus callback floating-point, disc importer, game-path,
-crash-report, frame-rate, menu-layout, profile persistence, and host presentation regression tests. The Xenos GPU
+payload transfer/installation, direction normalization/accumulation and
+countdown/scalar/bit tests, plus callback floating-point, disc importer, game-path,
+crash-report, frame-rate, menu-layout, profile persistence, and host presentation
+regression tests. The Xenos GPU
 plugin is rebuilt from the pinned SDK source with the local live-resolution
 extension in `tools/gpu/`. The first build downloads the corresponding SDK sources
 when necessary; `-Python` selects the Python executable for preparation.
@@ -194,12 +196,12 @@ notices, scans binaries for local identifiers, and writes ZIP checksums under
 
 The [native engine module notes](docs/NATIVE-CODE.md) describe the typed frame
 clock, geometry, vector, delay/mixing/feedback, table-value, handle, payload,
-countdown, scalar and bit-field routines, guest-memory boundaries, and comparisons against
-the translated game code.
+direction normalization/accumulation, countdown, scalar and bit-field routines,
+guest-memory boundaries, and comparisons against the translated game code.
 
 The [game-code conversion plan](docs/CONVERSION-PLAN.md) tracks the typed
 interfaces and remaining subsystem work separately from generated translations
-and development tooling. Development includes 42 typed native entry points,
+and development tooling. Development includes 44 typed native entry points,
 checked against the retained translations. Alpha 7 remains the published build
 with 26 entries. See [status](docs/STATUS.md) for
 the checks and their limits.

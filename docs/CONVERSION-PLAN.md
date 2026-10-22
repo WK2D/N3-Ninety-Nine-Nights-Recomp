@@ -11,7 +11,7 @@ separate from game logic and remain part of the existing development toolchain.
 The codegen partition has 13,762 function assignments across 87 source files.
 Those bodies comprise 13,525 `sub_` routines and 237 named helpers. The runtime
 table adds 151 import mappings, for 13,913 address mappings overall. These
-inventories cover different boundaries. Development currently has 42 typed native
+inventories cover different boundaries. Development currently has 44 typed native
 entry points, grouped below and checked against the retained translations.
 These counts are not
 a percentage of game logic or work completed: functions differ greatly in size,
@@ -22,7 +22,8 @@ translations. Runtime/UI hooks are not counted as complete engine conversions.
 | --- | ---: | --- |
 | Frame clock | 1 | Frequency, timestamp, target rate and deadlines |
 | Bounds and projections | 9 | Sphere/capsule/box geometry and transforms |
-| Vector updates and cached channels | 7 | Explicit three/four-component values |
+| Vector updates and cached channels | 8 | Explicit three/four-component values and conditional direction accumulation |
+| Direction normalization | 1 | Squared-length stages, threshold decision and separate reciprocal refinement |
 | Countdown, scalar, bit and ratio operations | 5 | Counters, arithmetic inputs and bit windows |
 | Delay/mixing and feedback processing | 7 | Taps, gains, histories, cursors and output caches |
 | Table-derived limits and bounded values | 8 | Channel/category selection, parallel and related table values, percentage changes, modifier replacement and lower/upper comparisons |
@@ -49,7 +50,12 @@ records observed gameplay coverage separately from synthetic tests.
    behavior have corresponding coverage. Keep a record of unresolved cases.
 
 The connected handle/payload batch exposes the record and relation interfaces
-needed by larger callers. Broader progression and callback-driven state changes
+needed by larger callers. Direction normalization now exposes the exact rounded
+math used by 147 translated callers (240 direct call sites). Its three uses in
+`0x8209D9B0` provide a boundary for the next direction-basis conversion; that
+larger caller remains translated. Call-site counts establish static reach,
+not observed gameplay execution or a performance gain.
+Broader progression and callback-driven state changes
 remain translated until their ownership, side effects and callback contracts
 have explicit interfaces; the extracted arithmetic does not identify those
 systems' gameplay roles.
