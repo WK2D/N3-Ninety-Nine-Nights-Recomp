@@ -65,6 +65,46 @@ bool Process(PPCContext& ctx, uint8_t* base, uint32_t history_size) {
   ctx.cr6.compare<uint32_t>(0, 0, ctx.xer);
   return true;
 }
+bool ProcessDual(PPCContext& ctx, uint8_t* base) {
+  using namespace n3::guest;
+  if (!ScalarExceptionsMasked(ctx) || ctx.r1.u32 < 32) return false;
+  const std::array<Range, 5> ranges{{{ctx.r3.u32, 4128}, {ctx.r4.u32, 1024},
+      {ctx.r5.u32, 1028}, {ctx.r6.u32, 1028}, {ctx.r1.u32 - 32, 32}}};
+  for (const auto range : ranges) if (!FitsGuestRange(range.start, range.size)) return false;
+  for (size_t a = 0; a < ranges.size(); ++a)
+    for (size_t b = a + 1; b < ranges.size(); ++b)
+      if (!DisjointGuestRanges(ranges[a].start, ranges[a].size, ranges[b].start, ranges[b].size)) return false;
+  struct Workspace {
+    DualTapDelayState state;
+    std::array<float, 1024> history;
+    std::array<float, 256> input;
+    std::array<float, 257> first, second;
+  };
+  thread_local Workspace workspace;
+  const auto object = ctx.r3.u32;
+  workspace.state = {{DelayTap{ReadWord(base, object), Read(base, object + 4)},
+      DelayTap{ReadWord(base, object + 12), Read(base, object + 16)}},
+      {Read(base, object + 8), Read(base, object + 20)}, ReadWord(base, object + 24)};
+  for (uint32_t i = 0; i < 1024; ++i) workspace.history[i] = Read(base, object + 32 + i * 4);
+  for (uint32_t i = 0; i < 256; ++i) workspace.input[i] = Read(base, ctx.r4.u32 + i * 4);
+  const auto cursor = workspace.state.cursor;
+  const auto saved_host = rex::platform::FPSCRPlatform::getcsr(), saved_guest = ctx.fpscr.csr;
+  ctx.fpscr.disableFlushMode();
+  if (!TryProcessDualTapDelay(workspace.state, workspace.history, workspace.input, workspace.first, workspace.second)) {
+    ctx.fpscr.csr = saved_guest; rex::platform::FPSCRPlatform::setcsr(saved_host); return false;
+  }
+  for (uint32_t i = 0; i < 256; ++i) Write(base, object + 32 + (cursor + i) * 4, workspace.history[cursor + i]);
+  for (uint32_t i = 0; i < 257; ++i) {
+    Write(base, ctx.r5.u32 + i * 4, workspace.first[i]); Write(base, ctx.r6.u32 + i * 4, workspace.second[i]);
+  }
+  Write(base, object + 8, workspace.state.previous[0]); Write(base, object + 20, workspace.state.previous[1]);
+  WriteWord(base, object + 24, workspace.state.cursor);
+  ctx.f0.f64 = double(workspace.state.previous[0]); ctx.f13.f64 = double(workspace.state.previous[1]);
+  ctx.r4.u64 += 1024; ctx.r5.u64 += 1024; ctx.r6.u64 += 1024;
+  ctx.r7.u64 = cursor + 256; ctx.r9.u64 = workspace.state.cursor;
+  ctx.cr6.compare<uint32_t>(0, 0, ctx.xer);
+  return true;
+}
 }
 extern "C" void __imp__sub_8253BED8(PPCContext&, uint8_t*);
 extern "C" void sub_8253BED8(PPCContext& ctx, uint8_t* base) {
@@ -73,4 +113,8 @@ extern "C" void sub_8253BED8(PPCContext& ctx, uint8_t* base) {
 extern "C" void __imp__sub_8253C240(PPCContext&, uint8_t*);
 extern "C" void sub_8253C240(PPCContext& ctx, uint8_t* base) {
   if (!Process(ctx, base, 2048)) __imp__sub_8253C240(ctx, base);
+}
+extern "C" void __imp__sub_8253C758(PPCContext&, uint8_t*);
+extern "C" void sub_8253C758(PPCContext& ctx, uint8_t* base) {
+  if (!ProcessDual(ctx, base)) __imp__sub_8253C758(ctx, base);
 }

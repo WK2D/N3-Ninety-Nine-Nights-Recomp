@@ -190,6 +190,10 @@ The [native engine module notes](docs/NATIVE-CODE.md) describe the typed frame
 clock, geometry, vector, delay/mixing/feedback, countdown, scalar and bit-field routines, guest-memory boundaries, and comparisons against
 the translated game code.
 
+The [game-code conversion plan](docs/CONVERSION-PLAN.md) tracks the typed
+interfaces and remaining subsystem work separately from generated translations
+and development tooling.
+
 The next platform work targets Vulkan and Apple Silicon. Portable native
 components can already build without game data or the Xbox runtime; the full
 game remains Windows-only. See the [native code and porting roadmap](docs/PORTING.md).

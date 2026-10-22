@@ -258,6 +258,29 @@ callback stacks; processing performs no callbacks and publishes no partial nativ
 result. Existing owner-thread and valid-storage requirements remain in force.
 Native arithmetic uses caller rounding, disabled scalar flush and masked traps.
 
+### Two independent taps
+
+Entry `0x8253C758` uses `DualTapDelayState` and `TryProcessDualTapDelay` in the same
+module. Its two delays/gains produce separate outputs without mixing them. The
+guest layout is delay/gain/previous at `+0/+4/+8` and `+12/+16/+20`, cursor at
+`+24`, and 1024 float history samples at `+32`. Each call reads 256 inputs and
+writes two 257-sample outputs prefixed by their previous values. Both taps read
+old history before the current input is stored, including delay zero.
+
+Supported cursors are 0, 256, 512 and 768; other cursors retain the original.
+Delays wrap modulo 1024, while the history write is one contiguous block. Native
+callers can edit the gains and delays independently. Source classification,
+disjoint-storage checks and FP requirements match the three-tap model. Finite
+source products may overflow or underflow just as in the translation; they do
+not feed subsequent arithmetic within this kernel.
+
+The adapter checks wrapping guest ranges and the original 32-byte caller scratch,
+preserves `f1/f2`, returns both final products in `f0/f13`, and advances all three
+buffer pointers by 1024 bytes. `r7` holds the unmasked cursor plus 256, while `r9`
+and the stored cursor contain the modulo-1024 result. These distinct results are
+compared against the retained translation. Effect roles and listening validation
+remain unestablished; this adds an editable engine interface, not an audio menu.
+
 ## Feedback-delay processing
 
 `src/native/feedback_delay.h` adds `FeedbackDelayState` with an explicit delay,
@@ -388,6 +411,13 @@ caller scratch; fallback cases compare every byte. Checks include `f1/f2`, point
 advancement, cursor, all nonvolatile GPR/FPRs, condition/carry flags, exception
 controls and indirect registration. These are kernel comparisons, not listening
 tests or a performance measurement.
+
+The same suites also cover the independent two-tap entry: portable fixtures check
+its distinct gains, output prefixes, four-block cursor wrap, untouched history,
+output-only tails and rejection without mutation. `delay_block_equivalence` now
+compares all three entries in 7,536 block cases. Its two-tap cases verify the
+32-byte scratch boundary, preserved `f1/f2`, final product registers, both cursor
+forms, aliases, source exceptions, unmasked exact arithmetic and registration.
 
 `native_feedback_delay` checks gain/delay edits, eight-block feedback continuity,
 modulo delays, old-history reads, impulse decay through generated subnormals,

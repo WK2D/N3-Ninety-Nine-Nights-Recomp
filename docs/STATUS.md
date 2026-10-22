@@ -540,3 +540,29 @@ logged errors; its harness stops only its own child. Both EXE and Direct3D plugi
 privacy scans pass. This brings development to twenty-seven typed native entries;
 Alpha 7 contains twenty-six. These checks do not establish listening quality,
 new gameplay coverage, a speedup or corrected higher-FPS animation timing.
+
+## Native independent two-tap processing
+
+Entry `0x8253C758` now uses `DualTapDelayState`: two independent delay/gain pairs,
+previous outputs and a cursor over 1024 history samples. The core processes 256
+inputs per call, reads both delayed values before writing input history, and
+preserves the untouched three quarters of that history. The guest adapter keeps
+the two original cursor forms, buffer advances, product registers, `f1/f2`,
+condition/carry flags and nonvolatile state. Unsupported inputs retain the
+translation without publishing a rejected native result.
+
+Both Windows configurations pass twenty-three suites. Delay equivalence now
+compares three entries in 7,536 block cases across all rounding/starting flush
+modes, including eight-block chains, source exceptions, finite extremes,
+unaligned fields, input/output/state/stack aliases, unmasked exact cases and
+indirect registration. Portable fixtures check separate gain edits, modulo
+delays, four-block wrap, old-history reads, output prefixes, untouched history
+and rejection without mutation. A fresh-profile 24-second Direct3D Release
+startup reaches menu installation and frame pacing without logged errors. Both
+EXE and Direct3D plugin privacy scans pass. These are synthetic/startup checks;
+listening validation and broader gameplay coverage remain pending.
+
+Development now has twenty-eight typed native engine entry points. The
+[conversion plan](CONVERSION-PLAN.md) records coverage and work toward replacing
+the remaining generated game routines; entry counts are not a completion
+percentage. Alpha 7 remains the published build with twenty-six entries.

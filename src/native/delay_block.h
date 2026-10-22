@@ -21,4 +21,16 @@ bool TryProcessDelayBlock(DelayBlockState& state, std::span<float> history,
     std::span<const float, kDelayBlockSamples> input,
     std::span<float, kDelayBlockSamples + 1> mixed,
     std::span<float, kDelayBlockSamples + 1> auxiliary);
+
+struct DualTapDelayState {
+  std::array<DelayTap, 2> taps;
+  std::array<float, 2> previous;
+  uint32_t cursor;
+};
+// Two independent delayed products share a 1024-sample input history. Both taps
+// read before the current input is stored. The same storage/FP rules apply.
+bool TryProcessDualTapDelay(DualTapDelayState& state, std::span<float, 1024> history,
+    std::span<const float, kDelayBlockSamples> input,
+    std::span<float, kDelayBlockSamples + 1> first,
+    std::span<float, kDelayBlockSamples + 1> second);
 }
