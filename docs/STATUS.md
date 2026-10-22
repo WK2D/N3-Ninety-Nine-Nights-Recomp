@@ -994,3 +994,43 @@ sources and checksum list. All three public asset SHA-256 digests and sizes
 match their local files. README and packaged instructions point to Alpha 10.
 This release closes the existing typed subset's address audit; full game-code
 conversion, broader gameplay validation and higher-FPS animation work remain open.
+
+## Explicit deterministic chance decisions
+
+Entry `0x8209E230` now uses `RandomSequenceState`, editable sequence parameters,
+normal/alternate thresholds and `ChanceDecision` through `native/chance_roll`.
+Six translated call sites use this helper. It advances the existing shared
+32-bit sequence exactly once per call, retains its modulo-100 bias and selects
+an enabled alternate only when positive. Signed thresholds remain unclamped,
+including guaranteed outcomes. This exposes code-level control without adding
+player settings or assigning unproven gameplay roles to the callers.
+
+The adapter maps the object/owner byte, shared seed and both 64-bit argument
+homes. It rejects home/source/seed aliases and nonlinear spans before dependent
+reads, retaining original write-before-read behavior for unsupported layouts.
+Only the selected threshold is read. All memory bytes and GPR/FPR/VMX/control
+results are compared; no scratch is normalized. The global seed stays on its
+existing game owner thread and other inlined sequence users remain translated.
+
+Both Windows configurations pass forty-two suites. New retained comparisons
+cover 4,096 calls (3,072 native, 1,024 retained), 1,024 chained replay calls and
+sixteen cases with the unused threshold on an inaccessible page. They include
+all rounding/initial flush/exception-mask modes, host/guest control divergence,
+unaligned/high object/owner/homes, offsets above 4 GiB, wrap/boundary fallback,
+threshold/seed overlaps and home aliases. Portable fixtures cover 20,000
+threshold combinations, edited recurrence parameters, wrap, guaranteed outcomes
+and a 100,000-roll replay. A fixture initially marked an adjacent, nonoverlapping
+source as an alias; correcting that expected route required no adapter change.
+
+One broader run reported a direction-basis whole-memory mismatch at sample 198,
+nearest rounding, initial flush on. That older suite passed subsequent complete
+builds, 120 process replays and replays pinned to each available logical
+processor. Its first differing guest byte is now reported on failure. The cause
+has not been established and no direction runtime fix is claimed; retain this
+as an open validation issue rather than treating the reruns as an explanation.
+
+A fresh-profile 24-second Direct3D Release startup reaches menu installation and
+frame pacing without logged errors; Windows EXE/plugin privacy scans pass.
+Development has forty-six typed entries: forty-four with guest-memory fixtures
+and two scalar-only operations. No additional gameplay route, speedup or
+higher-FPS animation fix is established. Full game-code conversion remains open.

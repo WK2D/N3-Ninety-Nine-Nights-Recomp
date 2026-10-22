@@ -21,7 +21,7 @@ is identified in [game-build.json](docs/game-build.json).
 
 ## Play the Windows alpha
 
-**[Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.10/N3-Recompiled-v0.1.0-alpha.10-windows-x64.zip)**
+**[Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.11/N3-Recompiled-v0.1.0-alpha.11-windows-x64.zip)**
 
 Extract the whole ZIP and run **n3.exe**. Select an ISO made from your own
 disc, or `default.xex` in your own extracted game folder with `data/` beside it.
@@ -38,15 +38,15 @@ folder when updating; replace the application folder with the new release.
 An existing extracted game folder is linked in place. The package contains
 no game assets or original executable. See the [release guide](docs/RELEASE-README.txt).
 
-[Release notes, checksums, and optional developer sources](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/tag/v0.1.0-alpha.10)
+[Release notes, checksums, and optional developer sources](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/tag/v0.1.0-alpha.11)
 are available separately. Only the Windows ZIP is needed to play.
 
-Alpha 10 retains 45 typed native C++ entry points and extends physical-memory
-addressing to the remaining 27 memory-backed adapters: geometry, vectors,
-primitives, audio and the frame clock. All 43 memory-backed typed entries now
-have mapped-address checks and high-address fixtures; the other two use only
-scalar registers. Countdown stack aliases and three saved-LR results also match
-the retained translations. Full game-code conversion remains in progress.
+Alpha 11 adds a typed deterministic chance-decision routine, bringing development
+to 46 native C++ entry points. Its explicit sequence state and normal/alternate
+thresholds preserve the game's shared random stream and argument-home writes.
+All 44 memory-backed typed entries have mapped-address checks and high-address
+fixtures; the other two use only scalar registers. Full game-code conversion
+remains in progress.
 Filtering uses numeric 1x/2x/4x/8x/16x choices. Windows still uses
 Direct3D 12. This engine work does not claim a speedup or fix higher-FPS animation timing.
 
@@ -203,8 +203,8 @@ guest-memory boundaries, and comparisons against the translated game code.
 
 The [game-code conversion plan](docs/CONVERSION-PLAN.md) tracks the typed
 interfaces and remaining subsystem work separately from generated translations
-and development tooling. Development includes 45 typed native entry points,
-checked against the retained translations and included in Alpha 9.
+and development tooling. Development includes 46 typed native entry points,
+checked against the retained translations and included in Alpha 11.
 See [status](docs/STATUS.md) for the checks and their limits.
 
 The next platform work targets Vulkan and Apple Silicon. Portable native

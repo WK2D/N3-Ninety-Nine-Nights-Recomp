@@ -632,11 +632,49 @@ supported. Trials publish nothing on rejection and restore FP state before
 fallback. All original GPR/FPR outputs, LR, condition/carry and control behavior
 are checked. Surrounding gameplay roles and units remain unassigned.
 
+## Deterministic chance rolls
+
+`src/native/chance_roll.h` exposes an explicit `RandomSequenceState`, editable
+multiplier/increment parameters, normal/alternate signed thresholds and a
+`ChanceDecision`. Entry `0x8209E230` uses it through `src/chance_roll_hooks.cpp`.
+Six translated call sites use this helper; that establishes static reach only.
+
+The default sequence advances by `seed = seed * 134775813 + 1` with 32-bit wrap,
+then samples `seed % 100`. It advances exactly once even when the threshold
+guarantees acceptance or rejection. The modulo bias and sequence are preserved.
+An enabled alternate threshold is used only when it is positive; otherwise the
+normal threshold is selected. Signed thresholds are not clamped to 0 through 100.
+Callers can replay an independent sequence or edit these native parameters
+without guest registers. This does not add a player-facing chance editor or
+identify every caller's gameplay role.
+
+For executable 0.0.0.3, the adapter reads the normal/alternate thresholds at
+object offsets `+764/+768` and the enable byte at owner `+812`. It updates the
+existing shared seed at `0x825D9D74` on the game's existing owner thread; no new
+cross-thread synchronization is introduced. It preserves both 64-bit argument
+homes at SP `+32/+40`, their write-before-read aliases, the integer return and all
+register/condition/FP state. Mapped ranges reject boundary/wrap and home/source
+aliases before reading dependent values. Rejected cases retain the original.
+The adapter reads only the selected threshold, so an unused threshold can remain
+on an inaccessible page. It does not replace the other inlined shared-seed users.
+
 ## Verification
 
 `native_frame_clock` runs in the portable component build on Windows, Linux and
 Apple Silicon. It checks units, integer truncation, exact original step bits,
 rate changes, zero-frequency behavior, and rejection without partial mutation.
+
+`native_chance_roll` checks 20,000 threshold combinations, edited sequence
+parameters, signed/unsigned wrap, guaranteed outcomes and a 100,000-roll replay.
+`chance_roll_equivalence` compares the actual retained entry in 4,096 calls:
+3,072 native and 1,024 retained, plus 1,024 chained replay calls and sixteen
+inaccessible unused-threshold cases. It checks every committed fixture byte,
+all GPR/FPR/VMX registers, LR/CTR/XER/condition fields and exact guest/host FP state.
+No memory or scratch is normalized. Cases cover high object/owner/homes addresses,
+all alignments, host offsets above 4 GiB, wrap/boundaries, default/alternate/seed
+overlaps, argument-home aliases, signed threshold extremes and preserved unbiased
+canaries. Integer work is tested under all rounding/flush/exception-mask modes
+and divergent host/guest flush controls.
 
 `frame_rate_policy` compares the replacement with the actual retained translated
 initializer for 18 rate/frequency combinations. It compares the entire 48-byte
@@ -892,9 +930,10 @@ updates, three memory primitives, seven audio kernels and the clock initializer.
 Their earlier virtual-address loops remain unchanged. Separate sparse fixtures
 add 14,536 comparisons: 8,680 native and 5,856 retained. These include host offsets
 above 4 GiB, unaligned and exact-tail spans, individually high objects/buffers/SP,
-boundary/wrap fallback, physical overlaps and unbiased-memory canaries. All 43
-memory-backed typed entries now have physical fixtures; two scalar-only entries
-do not access memory. This is coverage of the existing typed subset, not a full
+boundary/wrap fallback, physical overlaps and unbiased-memory canaries. Those 43
+memory-backed typed entries have physical fixtures; the chance adapter adds a
+forty-fourth. Two scalar-only entries do not access memory.
+This is coverage of the existing typed subset, not a full
 game conversion or proof for every possible guest layout.
 
 | Additional physical suite | Calls | Native | Retained |
@@ -920,10 +959,15 @@ inactive and expired branches do not require unused stack storage. Clock, box
 sample and box-sphere results now zero-extend restored LR exactly as the original
 32-bit saved-LR load does. Portable math APIs and typed-entry counts are unchanged.
 
-Both Windows configurations pass forty suites. A 24-second isolated
+Both Windows configurations pass forty-two suites. A 24-second isolated
 Direct3D Release startup reaches menu installation and frame pacing without
 logged errors; Windows EXE/plugin privacy scans pass. These are synthetic and
 startup checks, with no additional gameplay or performance claim.
+
+An intermittent older direction-basis mismatch remains an open validation issue.
+Subsequent builds, 120 process replays and per-processor pinned runs passed; these
+do not establish its cause or a fix. First-byte diagnostics now accompany that
+suite. See `docs/STATUS.md` for the observed failure and limits.
 
 ## Adding the next module
 

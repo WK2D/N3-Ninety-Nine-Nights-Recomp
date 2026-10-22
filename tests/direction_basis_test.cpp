@@ -36,7 +36,15 @@ struct Guest {
   Guest(const Guest&) = delete;
   void Copy(const Guest& other) { for (auto region : regions) std::memcpy(base + region.start, other.base + region.start, region.size); }
   bool Same(const Guest& other) const {
-    for (auto region : regions) if (std::memcmp(base + region.start, other.base + region.start, region.size)) return false;
+    for (auto region : regions) if (std::memcmp(base + region.start, other.base + region.start, region.size)) {
+      for (uint32_t i = 0; i < region.size; ++i) if (base[region.start + i] != other.base[region.start + i]) {
+        std::cerr << "First differing guest byte 0x" << std::hex << uint64_t(region.start) + i
+                  << " expected/actual " << uint32_t(base[region.start + i]) << '/'
+                  << uint32_t(other.base[region.start + i]) << std::dec << '\n';
+        break;
+      }
+      return false;
+    }
     return true;
   }
   void Word(uint32_t at, uint32_t bits) { rex::memory::store_and_swap<uint32_t>(base + HostOffset(at), bits); }
