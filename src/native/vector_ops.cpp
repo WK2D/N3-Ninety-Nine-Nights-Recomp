@@ -1,4 +1,5 @@
 #include "vector_ops.h"
+#include "shape_bounds.h"
 #include <bit>
 #include <cstdint>
 
@@ -15,6 +16,19 @@ Vec3 AccumulateScaledVector(Vec3 accumulator, Vec3 direction, double amount) {
   return {Component(accumulator.x, direction.x, amount),
           Component(accumulator.y, direction.y, amount),
           Component(accumulator.z, direction.z, amount)};
+}
+bool TryAccumulateVectorRatio(Vec3 accumulator, Vec3 direction,
+                              double numerator, double denominator, Vec3& output) {
+  if (!SupportsShapeValue(accumulator) || !SupportsShapeValue(direction) ||
+      !SupportsVectorScalar(numerator) || !SupportsVectorScalar(denominator) ||
+      (std::bit_cast<uint64_t>(denominator) & 0x7fffffffffffffffull) == 0) return false;
+  const float ratio = static_cast<float>(numerator / denominator);
+  if (!SupportsShapeValue(ratio)) return false;
+  const float z_product = static_cast<float>(double(direction.z) * double(ratio));
+  output = {Component(accumulator.x, direction.x, double(ratio)),
+            Component(accumulator.y, direction.y, double(ratio)),
+            static_cast<float>(double(z_product) + double(accumulator.z))};
+  return true;
 }
 void SetMirroredVector(MirroredVector3& channel, Vec3 value) {
   channel.cached = value;

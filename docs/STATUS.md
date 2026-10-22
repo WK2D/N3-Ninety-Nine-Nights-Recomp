@@ -1,6 +1,6 @@
 # Development status
 
-Recorded 21 October 2026. The opening mission, following cutscene, and writing a
+Recorded 22 October 2026. The opening mission, following cutscene, and writing a
 save have been exercised successfully. Loading saved progress also succeeds on
 the tested opening route. Full-game coverage remains unvalidated.
 
@@ -13,7 +13,7 @@ the tested opening route. Full-game coverage remains unvalidated.
 - Generated 13,762 function assignments across 87 translated C++ source files.
 - Windows x64 Release and RelWithDebInfo compile and link succeed with Clang 20.1.8.
 - Runtime initializes Direct3D 12, input, audio, and XEX imports.
-- Five JavaScript extractor tests and eight native regression suites pass.
+- Five JavaScript extractor tests and fifteen native regression suites pass.
 - A 30-second boot test survived until the harness stopped it, without the prior
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
@@ -333,6 +333,28 @@ Both Windows configurations pass thirteen suites. A separate 24-second Release
 startup presents through Direct3D 12 without logged errors until the harness
 stops its own child; it does not identify or exercise every converted routine's
 gameplay role. Executable and GPU plugin privacy scans pass.
+
+## Native countdown, arithmetic and bit-field batch
+
+Five further entries now expose typed C++ for a frame countdown, scalar addition
+and subtraction with explicit signed-zero flushing, a little-endian bit-window
+reader, and ratio-based vector accumulation. The countdown preserves the original
+pre-decrement progress numerator, signed comparisons and unsigned wraparound.
+Subtraction retains early float32 rounding of its second operand. Unsupported
+FP inputs, unmasked traps, ambiguous bit windows and vector aliases retain the
+original path. The guest adapters preserve condition/carry flags and keep
+addresses outside the portable models. See [routine contracts](NATIVE-CODE.md).
+
+The new equivalence suite passes 20,560 cases against the retained translations,
+including all rounding/flush modes, counter boundaries, scalar edge patterns,
+bit offsets/widths and unmasked-exception fallback with exact arithmetic.
+Portable tests cover explicit state/input edits and rejection without mutation.
+Both Windows configurations pass fifteen suites. An isolated 24-second Release
+startup presents through Direct3D 12 at requested 60 FPS without logged errors
+until the harness stops its own child. Binary privacy scans pass. These checks
+do not identify every caller's gameplay role, establish further mission coverage,
+or correct accelerated animation. Alpha 5 remains the published release; this
+batch extends the development build.
 
 ## Next validation work
 

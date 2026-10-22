@@ -108,6 +108,48 @@ They share a reviewed FP-control guard with the shape hooks. Current/cached
 updates are not a new synchronization primitive and must remain on the game's
 existing owner thread.
 
+## Countdown, scalar arithmetic and bit fields
+
+Five more entries use typed native operations through
+`src/engine_primitives_hooks.cpp`:
+
+| Entry | Native interface | Verified behavior |
+| --- | --- | --- |
+| `0x820801B0` | `AdvanceFrameCountdown` | Update active ID at `+208`, remaining frames at `+224`, and progress at `+216`, using total frames at `+220` |
+| `0x824A0C50` | `AddScalar` | Add double operands, round to float32, and flush a subnormal result to signed zero |
+| `0x824E7AD0` | `SubtractScalar` | Narrow the second operand to float32 before sign inversion/addition, then flush a subnormal result |
+| `0x8246D5F8` | `ReadBitWindow` | Extract an LSB-first field from a little-endian four-byte window |
+| `0x82324CD0` | `TryAccumulateVectorRatio` | Add a vector from `r5`, scaled by the float32-rounded ratio `f1 / f2`, to the three components at `+344` |
+
+The countdown is a frame counter with an inactive ID of `0xFFFFFFFF`. It
+decrements with unsigned wraparound, tests the result as signed, and keeps the
+last progress when expiring. Progress deliberately uses the *previous* remaining
+frame count divided by total frames, with both signed integers rounded to
+float32 before division. Negative and zero durations retain the original
+arithmetic. No conversion to elapsed time or higher-FPS animation fix is made.
+The surrounding object's gameplay purpose still needs caller tracing.
+
+Scalar results report whether a subnormal was flushed, allowing the adapter to
+preserve the original condition flags. Subtraction cannot be simplified to
+`float(first - second)`: the early rounding of the second operand is observable.
+NaN, infinity and subnormal input registers retain the original implementation.
+Native arithmetic requires the caller's rounding mode and disabled scalar
+flush; the adapter provides that transition and retains unmasked trap paths.
+
+The bit reader's native interface accepts a zero-based bit offset within the
+first byte and a width of 1 through 32 that fits the four-byte window. The guest
+entry's position is one-based. Unsupported widths, crossing windows and wrapping
+addresses use the retained PPC shift behavior. This helper reads four bytes;
+it is not a bounded parser for arbitrary untrusted buffers.
+
+Ratio accumulation retains float32 ratio/product/result rounding and the
+original reversed addition operands for Z. Unsupported inputs, zero denominators,
+exceptional ratios and overlapping input/object ranges retain the translation.
+The adapter restores FP controls before fallback and writes no partial native
+result. Together these interfaces expose explicit frame state, scalar operands,
+bit fields and vector inputs for future native callers without guest registers.
+They are not yet a gameplay scripting or mod configuration interface.
+
 ## Verification
 
 `native_frame_clock` runs in the portable component build on Windows, Linux and
@@ -139,6 +181,20 @@ in 14,336 cases, across four rounding modes and both starting flush modes. It
 checks whole-buffer writes, unaligned objects/inputs, alias fallback, float and
 double edge patterns, indirect-call registration, preserved inputs and nonvolatile
 state. The existing shape comparisons also run after sharing the FP guard.
+
+`native_engine_primitives` checks countdown transitions, wraparound, signed
+progress, zero durations, scalar operand narrowing, signed-zero result flushing,
+bit order/width validation and explicit ratio vector edits without the runtime.
+`engine_primitives_equivalence` compares the five actual translated entries in
+20,560 cases across all four rounding modes and both starting flush modes.
+It covers double/float edge patterns, all bit offsets and widths through 63,
+counter boundaries, alias fallback, unaligned fields, condition/carry flags,
+return values, representative nonvolatile state and indirect registration.
+Exact arithmetic cases also exercise unmasked exceptions without triggering a
+trap. All fixture bytes must match except the caller's 16-byte volatile stack
+scratch used only by the original scalar/countdown arithmetic; unmasked fallback
+cases compare that scratch too. FP rounding, flush and exception controls match.
+These synthetic tests do not establish every caller's gameplay behavior.
 
 These replacements do not fix accelerated animation at higher FPS. Animation, combat and
 scripted-event update paths still require matched-scene tracing and comparisons
