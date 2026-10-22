@@ -13,7 +13,7 @@ the tested opening route. Full-game coverage remains unvalidated.
 - Generated 13,762 function assignments across 87 translated C++ source files.
 - Windows x64 Release and RelWithDebInfo compile and link succeed with Clang 20.1.8.
 - Runtime initializes Direct3D 12, input, audio, and XEX imports.
-- Five JavaScript extractor tests and fifteen native regression suites pass.
+- Five JavaScript extractor tests and seventeen native regression suites pass.
 - A 30-second boot test survived until the harness stopped it, without the prior
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
@@ -366,6 +366,28 @@ checks are verified, followed by an isolated packaged startup with a fresh local
 profile. The package contains no game files or profiles and requires the player's
 own supported disc data. These checks do not extend the previously tested
 opening-route gameplay coverage or resolve higher-FPS animation timing.
+
+## Native transformed-box geometry
+
+Two further entries now use a portable affine-transform/box model: world-space
+box bounds at `0x823602C0` and signed-coordinate corner/sample transformation at
+`0x823604B8`. Basis rows, translation and half-extents are explicit editable C++
+inputs, separate from guest registers and field offsets. The model preserves
+Z/Y/X sum order, float32 intermediate rounding and explicit double FMAs; it also
+supports scale/shear and retains negative-extent arithmetic. Exceptional sources,
+unsupported scaled samples, aliases, stack overlaps and unmasked traps retain
+the original path. See [native geometry contracts](NATIVE-CODE.md).
+
+Both Windows configurations pass seventeen suites. The new equivalence suite
+passes 16,416 comparisons against the two retained translations across all
+rounding/flush modes, including integer boundaries, FP edge patterns, aliases,
+all nonvolatile registers and explicit native-path checks. Portable tests cover
+editable geometry and rejection without output mutation. An isolated 24-second
+Release startup presents through Direct3D 12 at requested 60 FPS without logged
+errors; the harness stops only its own child. Binary privacy scans pass. This
+brings the development build to twenty typed native entry points. Alpha 6 remains
+the published release with eighteen. No further gameplay coverage, player-hitbox
+identification, performance gain or animation-timing fix is established.
 
 ## Next validation work
 

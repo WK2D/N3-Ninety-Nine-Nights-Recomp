@@ -1,0 +1,57 @@
+#include "native/box_geometry.h"
+#include "guest_native_support.h"
+#include <rex/memory/utils.h>
+#include <bit>
+
+namespace {
+using namespace n3::native;
+float Read(uint8_t* base, uint32_t address) {
+  return std::bit_cast<float>(rex::memory::load_and_swap<uint32_t>(base + address));
+}
+Vec3 Read3(uint8_t* base, uint32_t address) {
+  return {Read(base, address), Read(base, address + 4), Read(base, address + 8)};
+}
+TransformedBox ReadBox(uint8_t* base, uint32_t object) {
+  return {{{Read3(base, object + 32), Read3(base, object + 44), Read3(base, object + 56)},
+           Read3(base, object + 68)}, Read3(base, object + 292)};
+}
+void Write3(uint8_t* base, uint32_t address, Vec3 value) {
+  rex::memory::store_and_swap<uint32_t>(base + address, std::bit_cast<uint32_t>(value.x));
+  rex::memory::store_and_swap<uint32_t>(base + address + 4, std::bit_cast<uint32_t>(value.y));
+  rex::memory::store_and_swap<uint32_t>(base + address + 8, std::bit_cast<uint32_t>(value.z));
+}
+bool Eligible(const PPCContext& ctx, uint32_t output, uint32_t size, uint32_t scratch_size) {
+  using namespace n3::guest;
+  const auto object = ctx.r3.u32, stack = ctx.r1.u32;
+  return ScalarExceptionsMasked(ctx) && FitsGuestRange(object, 304) && FitsGuestRange(output, size) &&
+      DisjointGuestRanges(object, 304, output, size) && stack >= scratch_size &&
+      DisjointGuestRanges(object, 304, stack - scratch_size, scratch_size) &&
+      DisjointGuestRanges(output, size, stack - scratch_size, scratch_size);
+}
+}
+extern "C" void __imp__sub_823602C0(PPCContext&, uint8_t*);
+extern "C" void sub_823602C0(PPCContext& ctx, uint8_t* base) {
+  const auto output = ctx.r4.u32;
+  if (!Eligible(ctx, output, 24, 24)) return __imp__sub_823602C0(ctx, base);
+  const auto box = ReadBox(base, ctx.r3.u32);
+  if (!SupportsBoxGeometry(box)) return __imp__sub_823602C0(ctx, base);
+  ctx.fpscr.disableFlushMode();
+  const auto bounds = TransformedBoxBounds(box);
+  Write3(base, output, bounds.minimum); Write3(base, output + 12, bounds.maximum);
+}
+extern "C" void __imp__sub_823604B8(PPCContext&, uint8_t*);
+extern "C" void sub_823604B8(PPCContext& ctx, uint8_t* base) {
+  const auto output = ctx.r7.u32;
+  if (!Eligible(ctx, output, 12, 64)) return __imp__sub_823604B8(ctx, base);
+  const auto box = ReadBox(base, ctx.r3.u32);
+  const auto saved_host = rex::platform::FPSCRPlatform::getcsr();
+  const auto saved_guest = ctx.fpscr.csr;
+  ctx.fpscr.disableFlushMode();
+  Vec3 result{};
+  if (!TryTransformBoxSample(box, {ctx.r4.s32, ctx.r5.s32, ctx.r6.s32}, result)) {
+    ctx.fpscr.csr = saved_guest;
+    rex::platform::FPSCRPlatform::setcsr(saved_host);
+    return __imp__sub_823604B8(ctx, base);
+  }
+  Write3(base, output, result);
+}

@@ -150,6 +150,38 @@ result. Together these interfaces expose explicit frame state, scalar operands,
 bit fields and vector inputs for future native callers without guest registers.
 They are not yet a gameplay scripting or mod configuration interface.
 
+## Transformed box geometry
+
+`src/native/box_geometry.h` exposes an `AffineTransform3` (three row-major basis
+rows plus translation) and `TransformedBox` with explicit half-extents. Two more
+entries use this model through `src/box_geometry_hooks.cpp`:
+
+| Entry | Native interface | Verified guest inputs/output |
+| --- | --- | --- |
+| `0x823602C0` | `TransformedBoxBounds` | Basis at `+32`, translation at `+68`, half-extents at `+292`; six min/max components to `r4` |
+| `0x823604B8` | `TryTransformBoxSample` | Same box plus signed integer coordinates in `r4/r5/r6`; three transformed components to `r7` |
+
+Bounds project each half-extent onto a basis row, take the absolute value of each
+float32-rounded product, and add Z, then Y, then X. The returned bounds are centered
+on the explicit translation. Negative extents retain the original arithmetic;
+the transform is not assumed orthonormal, so scale and shear are supported.
+
+The sample routine accepts all signed 32-bit coordinates, including the usual
+eight `-1/+1` corner choices. Each integer rounds to float32 before multiplication
+by the half-extent. For each output component, the Z product rounds first; the Y
+and X terms use explicit double FMAs narrowed to float32, followed by a rounded
+translation addition. Substituting float FMA or reassociating the dot product can
+change bits. For example, native callers can edit `box.half_extents` or
+`box.transform` and recompute bounds/corners without guest registers or addresses.
+This is a geometry interface, not an identified player hitbox editor.
+
+The adapters retain the original for exceptional/subnormal source values,
+unmasked FP exceptions, wrapping ranges, input/output aliases and overlaps with
+the original caller-stack scratch. Unsupported scaled sample coordinates also
+fall back without publishing a partial result; saved FP controls are restored
+first. Native arithmetic requires caller rounding and disabled scalar flush.
+Box state and output remain owned by the game's existing calling thread.
+
 ## Verification
 
 `native_frame_clock` runs in the portable component build on Windows, Linux and
@@ -195,6 +227,19 @@ trap. All fixture bytes must match except the caller's 16-byte volatile stack
 scratch used only by the original scalar/countdown arithmetic; unmasked fallback
 cases compare that scratch too. FP rounding, flush and exception controls match.
 These synthetic tests do not establish every caller's gameplay behavior.
+
+`native_box_geometry` checks identity corners, translation, scale/shear, negative
+extents, sum order, coordinate rounding and rejection without output mutation.
+`box_geometry_equivalence` compares the two actual translations in 16,416 cases
+across four rounding modes and both starting flush modes. It checks arbitrary
+and edge float patterns, large signed integer coordinates, unaligned fields,
+object/output and stack aliases, unmasked exact arithmetic, all nonvolatile
+GPR/FPRs, condition/carry flags, FP controls and indirect-call registration.
+Ordinary cases explicitly assert the native path is used. Whole-buffer checks
+normalize only dead caller stack scratch (24 bytes for bounds, 64 for samples)
+in non-overlapping masked cases; alias and unmasked cases compare every byte.
+These memory-output routines do not reproduce dead volatile FP/GPR temporaries.
+No new gameplay coverage, hitbox-role identification or speedup is established.
 
 These replacements do not fix accelerated animation at higher FPS. Animation, combat and
 scripted-event update paths still require matched-scene tracing and comparisons
