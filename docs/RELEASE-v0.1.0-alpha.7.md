@@ -64,7 +64,7 @@ your desktop shortcut if the application folder changed; shortcuts made from
 to play. Windows 10/11 x64, Direct3D 12 and an Xbox-compatible controller remain
 the target.
 
-### Developer sources — optional
+### Developer sources â€” optional
 
 [SDK, dependencies and renderer extensions](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.7/ReXGlue-bd833a2-corresponding-source.zip)
 are available for rebuilding and licensing; **they are not needed to play**.
