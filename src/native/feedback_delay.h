@@ -23,4 +23,12 @@ bool TryProcessFeedbackDelay(FeedbackDelayState& state, std::span<float, 128> hi
                             std::span<float, 257> buffer);
 bool TryProcessFeedbackDelay(FeedbackDelayState& state, std::span<float, 512> history,
                             std::span<float, 257> buffer);
+// Separate-output form of the 512-sample model. Output contains the cached
+// prefix and the first 255 new outputs; final_output receives the 256th new
+// output. Input is unchanged. In the guest layout final_output is input[256].
+// State, history, input, output and final_output must be pairwise disjoint.
+// The same cursor, arithmetic and transactional-rejection contract applies.
+bool TryProcessFeedbackDelaySeparate(FeedbackDelayState& state, std::span<float, 512> history,
+                                    std::span<const float, 256> input,
+                                    std::span<float, 256> output, float& final_output);
 }

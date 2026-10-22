@@ -328,6 +328,26 @@ condition flags. The 256/512 entries preserve their original `f1/f2` and carry
 behavior. All three return the resulting cursor in `r5` and store it in state.
 Original translations remain available for fallback.
 
+### Separate output and final sample
+
+Entry `0x8253C5F0` shares the 512-sample history and arithmetic through
+`TryProcessFeedbackDelaySeparate`. Its guest buffers have an unusual verified
+contract: `r4` points to 256 unchanged input samples plus a writable final slot,
+while `r5` points to a separate 256-sample output. That output receives the old
+cached prefix and the first 255 new results. The last new result goes into
+`input[256]` and becomes the cached output. The adapter preserves this layout
+instead of extending the separate output buffer. Existing callers pass distinct
+stack buffers and feed the separate output into subsequent processing.
+
+The portable API represents that contract as const input, output and a separate
+final-output reference; the reference may immediately follow input. State,
+history, input, output and final-output storage must be pairwise disjoint. The
+calculation stages its history and results, so late rejection changes none of
+those regions. The adapter includes the input tail in range/alias checks, checks
+the original 40-byte caller scratch, advances `r4` by 1024 and returns the wrapped
+cursor in `r5`. `f1/f2`, carry and nonvolatile state are preserved. Native snapshots
+use per-thread storage, and the shared core requires the existing FP contract.
+
 ## Verification
 
 `native_frame_clock` runs in the portable component build on Windows, Linux and
@@ -423,16 +443,26 @@ forms, aliases, source exceptions, unmasked exact arithmetic and registration.
 modulo delays, old-history reads, impulse decay through generated subnormals,
 the unread output tail and rejection without partial publication, including late
 overflow after the shorter history has wrapped. `feedback_delay_equivalence`
-compares all three retained entries in 7,536 block
+compares all four retained entries in 10,048 block
 cases across all four rounding modes and both starting flush modes. It covers
 eight-block chains, alternating 512-sample history halves and cursor wrap,
 positive/negative overflow and finite saturation, generated
 subnormals, source exceptions, unsupported cursors, unaligned/overlapping buffers,
 stack aliases and unmasked exact arithmetic. Whole-buffer checks normalize only
-unchanged native caller scratch (32 bytes); fallback cases compare every byte.
+unchanged native caller scratch (32 bytes in-place, 40 separate-output); fallback
+cases compare every byte.
 They also check native-path use, pointer/cursor results, each entry's `f1/f2`, all
 nonvolatile GPR/FPRs, condition/carry flags, FP controls and indirect registration.
 These are kernel comparisons, not perceptual or performance measurements.
+
+The separate-output cases additionally compare the entire split output and input
+tail, explicitly preserve the first 256 input values, and cover aliases involving
+either buffer, state, history and the original 40-byte scratch. Portable fixtures
+include output canaries, gain edits, split-output continuity, both history halves,
+generated subnormals and rollback after a late failure. They also reject aliasing
+the final-output reference with state, history, input or output. FP comparisons
+cover rounding, flush and exception controls; they do not require every transient
+volatile register or every sticky exception-status bit to match.
 
 These replacements do not fix accelerated animation at higher FPS. Animation, combat and
 scripted-event update paths still require matched-scene tracing and comparisons

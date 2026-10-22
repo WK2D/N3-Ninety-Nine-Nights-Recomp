@@ -13,6 +13,8 @@ extern "C" void sub_8253C310(PPCContext&, uint8_t*);
 extern "C" void __imp__sub_8253C310(PPCContext&, uint8_t*);
 extern "C" void sub_8253C480(PPCContext&, uint8_t*);
 extern "C" void __imp__sub_8253C480(PPCContext&, uint8_t*);
+extern "C" void sub_8253C5F0(PPCContext&, uint8_t*);
+extern "C" void __imp__sub_8253C5F0(PPCContext&, uint8_t*);
 extern PPCFuncMapping PPCFuncMappings[];
 void Require(bool value, const char* message) {
   if (!value) throw std::runtime_error(message);
@@ -27,16 +29,18 @@ int main() {
   bool flush = false;
   try {
     using Function = void (*)(PPCContext&, uint8_t*);
-    struct Entry { uint32_t address, history_size; Function original, replacement; };
-    const std::array<Entry, 3> entries{{
+    struct Entry { uint32_t address, history_size; Function original, replacement; bool separate = false; };
+    const std::array<Entry, 4> entries{{
         {0x8253BFA8, 128, __imp__sub_8253BFA8, sub_8253BFA8},
         {0x8253C310, 256, __imp__sub_8253C310, sub_8253C310},
-        {0x8253C480, 512, __imp__sub_8253C480, sub_8253C480}}};
+        {0x8253C480, 512, __imp__sub_8253C480, sub_8253C480},
+        {0x8253C5F0, 512, __imp__sub_8253C5F0, sub_8253C5F0, true}}};
     std::mt19937 random(0x4644424b);
     uint32_t comparisons = 0;
     for (const auto& entry : entries) {
       history_size = entry.history_size;
       const auto object_size = 24 + history_size * 4;
+      const uint32_t scratch = entry.separate ? 40 : 32;
       bool registered = false;
       for (auto* mapping = PPCFuncMappings; mapping->guest; ++mapping)
         if (mapping->guest == entry.address) registered = mapping->host == entry.replacement;
@@ -47,14 +51,35 @@ int main() {
           std::vector<uint8_t> expected(65536), actual;
           for (auto& byte : expected) byte = uint8_t(random());
           uint32_t object = 256 + sample % 4, buffer = 16384 + sample % 4;
+          uint32_t output = 32768 + sample % 4;
           if (sample >= 128 && sample < 160) {
-            if (sample % 4 == 0) buffer = object + 24;
+            if (entry.separate) {
+              switch (sample % 8) {
+                case 0: output = buffer; break;
+                case 1: output = buffer + 4; break;
+                case 2: output = object + 24; break;
+                case 3: output = object + 12; break;
+                case 4: buffer = object + 24; break;
+                case 5: buffer = object + 12; break;
+                case 6: output = object + object_size - 4; break;
+                case 7: object = buffer + 16; break;
+              }
+            }
+            else if (sample % 4 == 0) buffer = object + 24;
             else if (sample % 4 == 1) buffer = object + 12;
             else if (sample % 4 == 2) buffer = object + object_size - 4;
             else object = buffer + 16;
           }
           if (sample >= 160 && sample < 192) {
-            if (sample % 2) object = stack - 16 - object_size;
+            if (entry.separate) {
+              switch (sample % 4) {
+                case 0: object = stack - 16 - object_size; break;
+                case 1: buffer = stack - 1028; break;
+                case 2: output = stack - 1024; break;
+                case 3: buffer = stack - 40 - 1024; break;
+              }
+            }
+            else if (sample % 2) object = stack - 16 - object_size;
             else buffer = stack - 1028;
           }
           auto store = [&](uint32_t location, uint32_t value) {
@@ -100,6 +125,7 @@ int main() {
           actual = expected; const auto before = expected;
           PPCContext original{};
           original.r1.u32 = stack; original.r3.u32 = object; original.r4.u32 = buffer;
+          if (entry.separate) original.r5.u32 = output;
           original.r11.u64 = marker; original.lr = 0x82081234;
           original.f1.u64 = 0x40123456789abcde; original.f2.u64 = 0xc00123456789abcd;
   #define SEED(n) original.r##n.u64 = 0x123456789abcde00ull + n; original.f##n.u64 = 0x40123456789abc00ull + n;
@@ -116,6 +142,7 @@ int main() {
           auto replacement = original;
           for (uint32_t block = 0; block < (sample >= 8 && sample < 16 ? 8u : 1u); ++block) {
             original.r4.u32 = replacement.r4.u32 = buffer;
+            if (entry.separate) original.r5.u32 = replacement.r5.u32 = output;
             original.r11.u64 = replacement.r11.u64 = marker;
             original.fpscr.csr = replacement.fpscr.csr = initial;
             Platform::setcsr(initial);
@@ -130,8 +157,11 @@ int main() {
                  (rounding == 1 || (sample & 1 ? rounding == 2 : rounding == 3)));
             if (native_case) {
               Require(replacement.r11.u64 == marker && original.r11.u64 != marker, "Ordinary feedback did not use native path");
-              Require(std::equal(actual.begin() + stack - 32, actual.begin() + stack, before.begin() + stack - 32), "Native feedback wrote guest stack scratch");
-              std::copy_n(before.begin() + stack - 32, 32, expected.begin() + stack - 32);
+              Require(std::equal(actual.begin() + stack - scratch, actual.begin() + stack, before.begin() + stack - scratch), "Native feedback wrote guest stack scratch");
+              std::copy_n(before.begin() + stack - scratch, scratch, expected.begin() + stack - scratch);
+              if (entry.separate)
+                Require(std::equal(actual.begin() + buffer, actual.begin() + buffer + 1024, before.begin() + buffer),
+                        "Separate feedback mutated the input prefix");
             }
             Require(actual == expected, "Native/translated feedback bytes differ");
             Require(original.r1.u64 == replacement.r1.u64 && original.r3.u64 == replacement.r3.u64 &&

@@ -7,6 +7,7 @@
 extern "C" void __imp__sub_8253C310(PPCContext&, uint8_t*);
 extern "C" void __imp__sub_8253BFA8(PPCContext&, uint8_t*);
 extern "C" void __imp__sub_8253C480(PPCContext&, uint8_t*);
+extern "C" void __imp__sub_8253C5F0(PPCContext&, uint8_t*);
 namespace {
 uint32_t ReadWord(uint8_t* base, uint32_t address) {
   return rex::memory::load_and_swap<uint32_t>(base + address);
@@ -58,6 +59,49 @@ template<size_t HistorySize> bool Process(PPCContext& ctx, uint8_t* base) {
   ctx.cr6.compare<uint32_t>(0, 0, ctx.xer);
   return true;
 }
+bool ProcessSeparate(PPCContext& ctx, uint8_t* base) {
+  using namespace n3::guest;
+  const auto source = ctx.r3.u32, input = ctx.r4.u32, output = ctx.r5.u32, stack = ctx.r1.u32;
+  if (!ScalarExceptionsMasked(ctx) || stack < 40) return false;
+  struct Range { uint32_t start, size; };
+  const std::array<Range, 4> ranges{{{source, 2072}, {input, 1028}, {output, 1024}, {stack - 40, 40}}};
+  for (auto range : ranges) if (!FitsGuestRange(range.start, range.size)) return false;
+  for (size_t a = 0; a < ranges.size(); ++a)
+    for (size_t b = a + 1; b < ranges.size(); ++b)
+      if (!DisjointGuestRanges(ranges[a].start, ranges[a].size, ranges[b].start, ranges[b].size)) return false;
+  struct SeparateWorkspace {
+    n3::native::FeedbackDelayState state;
+    std::array<float, 512> history;
+    std::array<float, 256> input, output;
+    float final_output;
+  };
+  // Guest snapshots stay off the small runtime callback stack. No callbacks
+  // occur while processing or publishing this block.
+  thread_local SeparateWorkspace workspace;
+  workspace.state = {ReadWord(base, source), Read(base, source + 4), Read(base, source + 8),
+                     Read(base, source + 12), ReadWord(base, source + 16)};
+  const auto cursor = workspace.state.cursor;
+  for (uint32_t i = 0; i < 512; ++i) workspace.history[i] = Read(base, source + 24 + i * 4);
+  for (uint32_t i = 0; i < 256; ++i) workspace.input[i] = Read(base, input + i * 4);
+  const auto saved_host = rex::platform::FPSCRPlatform::getcsr(), saved_guest = ctx.fpscr.csr;
+  ctx.fpscr.disableFlushMode();
+  if (!n3::native::TryProcessFeedbackDelaySeparate(workspace.state, workspace.history,
+                                                workspace.input, workspace.output, workspace.final_output)) {
+    ctx.fpscr.csr = saved_guest; rex::platform::FPSCRPlatform::setcsr(saved_host); return false;
+  }
+  for (uint32_t i = 0; i < 256; ++i) {
+    Write(base, source + 24 + (cursor + i) * 4, workspace.history[cursor + i]);
+    Write(base, output + i * 4, workspace.output[i]);
+  }
+  // Preserve the original split buffer contract: its final output goes in the
+  // input tail, while the separate output contains only the prefix and 255 results.
+  Write(base, input + 1024, workspace.final_output);
+  Write(base, source + 12, workspace.state.previous_output);
+  WriteWord(base, source + 16, workspace.state.cursor);
+  ctx.r4.u64 += 1024; ctx.r5.u64 = workspace.state.cursor;
+  ctx.cr6.compare<uint32_t>(0, 0, ctx.xer);
+  return true;
+}
 }
 extern "C" void sub_8253C310(PPCContext& ctx, uint8_t* base) {
   if (!Process<256>(ctx, base)) __imp__sub_8253C310(ctx, base);
@@ -67,4 +111,7 @@ extern "C" void sub_8253BFA8(PPCContext& ctx, uint8_t* base) {
 }
 extern "C" void sub_8253C480(PPCContext& ctx, uint8_t* base) {
   if (!Process<512>(ctx, base)) __imp__sub_8253C480(ctx, base);
+}
+extern "C" void sub_8253C5F0(PPCContext& ctx, uint8_t* base) {
+  if (!ProcessSeparate(ctx, base)) __imp__sub_8253C5F0(ctx, base);
 }

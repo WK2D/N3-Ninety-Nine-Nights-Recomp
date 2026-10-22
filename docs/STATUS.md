@@ -566,3 +566,28 @@ Development now has twenty-eight typed native engine entry points. The
 [conversion plan](CONVERSION-PLAN.md) records coverage and work toward replacing
 the remaining generated game routines; entry counts are not a completion
 percentage. Alpha 7 remains the published build with twenty-six entries.
+
+## Native separate-output feedback processing
+
+Entry `0x8253C5F0` now uses the typed 512-sample feedback model with an explicit
+separate output and final-output reference. It preserves the original split:
+the separate 256-sample output contains a cached prefix and 255 new results;
+the last new result is written to the input's extra slot and cached in state.
+The 256 input samples stay unchanged. Cursors alternate between 0 and 256,
+and unsupported inputs retain the original translation. Rejected trials publish
+no history, state or output changes, and the adapter restores FP state before
+fallback. Original stack scratch is 40 bytes, distinct from the in-place kernels.
+
+Both Windows configurations pass twenty-three suites. Feedback equivalence now
+covers four entries in 10,048 block cases, including split-buffer aliases,
+unchanged inputs, both history halves, chained continuity, late overflow,
+generated subnormals, unmasked exact arithmetic and calling convention checks.
+Portable fixtures verify output canaries and the final-output reference's alias
+rules. Test temporary files are isolated under the workspace. A fresh-profile
+24-second Direct3D Release startup reaches menu installation and frame pacing
+without logged errors; EXE and Direct3D plugin privacy scans pass. Independent
+source review found no contract mismatch. Listening quality, broader gameplay,
+performance and higher-FPS animation timing remain unvalidated.
+
+Development has twenty-nine typed native entry points. The full readable-C++
+conversion remains in progress; Alpha 7 still packages twenty-six entries.
