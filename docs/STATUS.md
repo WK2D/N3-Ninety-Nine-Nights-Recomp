@@ -969,3 +969,28 @@ All forty-three memory-backed typed entries now have physical fixtures, with two
 additional scalar-only entries. This finishes the address audit of the existing
 forty-five-entry subset. Full readable-C++ game conversion remains in progress;
 these checks establish no new gameplay route, performance gain or animation fix.
+
+## Alpha 10 publication
+
+Published `v0.1.0-alpha.10` from source commit
+`07e107a3eaee3b04acfc4b23c0f03931800befab`. The public tag resolves to that
+commit. All forty-five typed entry points are packaged, with physical fixtures
+for all forty-three memory-backed entries. Both Windows configurations pass
+forty suites; all eighteen portable component suites pass on Windows, Ubuntu
+and Apple Silicon in the
+[matching CI run](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/actions/runs/39743331088).
+
+All 76 allowlisted package members, CRCs, fixed ZIP metadata, source-commit
+manifest and corresponding-source hashes pass verification. Packaged runtime
+binaries match the tested Release outputs, and every embedded icon image matches
+the project ICO. The extracted importer entry point and a fresh-profile
+24-second Direct3D startup pass; startup reaches menu installation and frame
+pacing without logged errors. Binary privacy checks pass. Game data, profiles,
+logs, PDBs and loose images remain excluded. Existing local saves/settings and
+the stable development launcher remain in place.
+
+The public prerelease contains exactly the Windows ZIP, optional corresponding
+sources and checksum list. All three public asset SHA-256 digests and sizes
+match their local files. README and packaged instructions point to Alpha 10.
+This release closes the existing typed subset's address audit; full game-code
+conversion, broader gameplay validation and higher-FPS animation work remain open.
