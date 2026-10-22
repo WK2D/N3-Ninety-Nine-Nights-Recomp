@@ -16,8 +16,11 @@ extern PPCFuncMapping PPCFuncMappings[];
 thread_local bool n3_direction_normalization_native_used = false;
 void Require(bool ok, const char* message) { if (!ok) throw std::runtime_error(message); }
 struct Region { uint32_t start, size; };
-constexpr std::array<Region, 2> regions{{{0, 0x40000}, {0x82001000, 4096}}};
+constexpr std::array<Region, 5> regions{{{0, 0x40000}, {0x82001000, 4096},
+    {0xdfff0000, 0x20000}, {0xe1000000, 0x20000}, {0xffffb000, 0x4000}}};
 constexpr uint32_t threshold_address = 0x820018ac;
+// Independent fixture implementation of the Windows translation's address rule.
+uint64_t HostOffset(uint32_t address) { return uint64_t(address) + (address >= 0xe0000000u ? 0x1000u : 0u); }
 struct Guest {
   uint8_t* base;
   Guest() : base(static_cast<uint8_t*>(VirtualAlloc(nullptr, size_t{1} << 32, MEM_RESERVE, PAGE_NOACCESS))) {
@@ -33,7 +36,7 @@ struct Guest {
     for (auto region : regions) if (std::memcmp(base + region.start, other.base + region.start, region.size)) return false;
     return true;
   }
-  void Word(uint32_t at, uint32_t bits) { rex::memory::store_and_swap<uint32_t>(base + at, bits); }
+  void Word(uint32_t at, uint32_t bits) { rex::memory::store_and_swap<uint32_t>(base + HostOffset(at), bits); }
 };
 void CheckContext(const PPCContext& expected, const PPCContext& actual) {
 #define CHECK(n) if (expected.r##n.u64 != actual.r##n.u64 || expected.f##n.u64 != actual.f##n.u64) { \
@@ -62,7 +65,7 @@ void CheckContext(const PPCContext& expected, const PPCContext& actual) {
 int main() {
   using Platform = rex::platform::FPSCRPlatform;
   constexpr auto controls = PPCFPSCRRegister::GuestMask | Platform::ExceptionMask;
-  constexpr uint32_t sample_count = 548;
+  constexpr uint32_t sample_count = 580;
   const auto saved_host = Platform::getcsr();
   uint32_t sample = 0, rounding = 0; bool flush = false;
   try {
@@ -80,6 +83,7 @@ int main() {
         0x7f7fffffu, 0xff7fffffu, 0x7f800000u, 0xff800000u,
         0x7fc12345u, 0x7f812345u, 0x3f800001u, 0x33800000u};
     uint32_t comparisons = 0, native_count = 0, retained_count = 0, overlap_native = 0, divergent_native = 0;
+    uint32_t physical_native = 0, boundary_retained = 0;
     for (rounding = 0; rounding < 4; ++rounding) for (bool next_flush : {false, true}) {
       flush = next_flush;
       for (sample = 0; sample < sample_count; ++sample) {
@@ -145,13 +149,31 @@ int main() {
             case 30: stack = threshold_address + 4; must_fallback = true; break;
             case 31: destination = source - 4; must_native = true; break;
           }
-        } else {
+        } else if (sample < 548) {
           source = 0x6000; destination = 0x1000; values = {};
           must_fallback = sample < 547; must_native = sample == 547;
+        } else {
+          const auto physical_case = sample - 548;
+          values = {0x40400000u, 0x40800000u, 0, 0};
+          source = 0xe1006000u + physical_case % 16;
+          must_native = true;
+          if (physical_case >= 16) { destination = 0xe1001000u + physical_case % 4; stack = 0xe100a000u; }
+          if (physical_case == 24) destination = source + 4;
+          if (physical_case == 25) { source = stack - 16; must_native = false; must_fallback = true; }
+          if (physical_case == 26) { destination = stack + 20; values = {}; must_native = false; must_fallback = true; }
+          if (physical_case == 27) { source = 0xdffffffcu; must_native = false; must_fallback = true; }
+          if (physical_case == 28) { destination = 0xdffffffcu; must_native = false; must_fallback = true; }
+          if (physical_case == 29) { stack = 0xe0000000u; must_native = false; must_fallback = true; }
+          if (physical_case == 30) stack = 0xe0000010u;
+          if (physical_case == 31) { source = 0xffffd004u; destination = 0xffffb000u; stack = 0xffffc800u; }
         }
-        std::fill_n(expected.base + (source & ~15u), 32, uint8_t{0});
+        std::fill_n(expected.base + HostOffset(source & ~15u), 16, uint8_t{0});
+        std::fill_n(expected.base + HostOffset((source + 11) & ~15u), 16, uint8_t{0});
         for (uint32_t lane = 0; lane < values.size(); ++lane) expected.Word(source + lane * 4, values[lane]);
         expected.Word(threshold_address, threshold);
+        std::array<uint8_t, 12> unbiased_output{};
+        const bool physical_output = destination >= 0xe0000000u;
+        if (physical_output) std::copy_n(expected.base + (destination & ~3u), 12, unbiased_output.begin());
         actual.Copy(expected);
         PPCContext original{};
 #define SEED(n) original.r##n.u64 = 0x123456789abcde00ull + n; original.f##n.u64 = 0x40123456789abc00ull + n;
@@ -198,7 +220,13 @@ int main() {
           const auto output_start = destination & ~3u;
           if (uint64_t(output_start) < uint64_t(source) + 12 && uint64_t(source) < uint64_t(output_start) + 12) ++overlap_native;
           if (sample == 547) ++divergent_native;
+          if (sample >= 548) ++physical_native;
         } else ++retained_count;
+        if (sample >= 575 && sample <= 577 && !native) ++boundary_retained;
+        if (physical_output)
+          Require(std::equal(actual.base + (destination & ~3u), actual.base + (destination & ~3u) + 12, unbiased_output.begin()) &&
+                  std::equal(expected.base + (destination & ~3u), expected.base + (destination & ~3u) + 12, unbiased_output.begin()),
+                  "Physical normalization changed the unbiased output canary");
         Require(expected.Same(actual), "Normalization whole-fixture bytes differ");
         CheckContext(original, replacement);
         Require((original.fpscr.csr & controls) == (replacement.fpscr.csr & controls) &&
@@ -210,6 +238,7 @@ int main() {
       }
     }
     Require(overlap_native > 0 && divergent_native == 8, "Safe overlap or divergent masked controls lacked native coverage");
+    Require(physical_native >= 200 && boundary_retained == 24, "Physical mapping or shadow-boundary fallback lacked coverage");
     Platform::setcsr(saved_host);
     std::cout << comparisons << " normalization equivalence cases (" << native_count << " native, " << retained_count
               << " retained), all VMX/GPR/FPR results, aliases and FP controls passed\n";

@@ -560,8 +560,53 @@ claims identical transient sticky FP exception status.
 Normalization has 240 static direct call sites across 147 translated callers.
 The accumulation entry has indirect address references but no generated direct
 calls; its runtime use has not been observed. The direction-basis caller
-`0x8209D9B0`, which invokes normalization three times, remains translated.
+`0x8209D9B0`, which invokes normalization three times, now uses the typed phases
+described below.
 These contracts do not identify an animation/combat role or change game timing.
+
+## Direction basis from signed axes
+
+Entry `0x8209D9B0` now uses `src/native/direction_basis.h` and `.cpp`, with the
+guest boundary in `src/direction_basis_hooks.cpp`. Its signed integer pair rounds
+to float32 and forms `{horizontal, lower, vertical}`. The vector normalizes and
+its new squared length is compared with lower. The inactive branch leaves output
+untouched, including arbitrary old bits. A null selected basis writes
+`{lower, lower, unit}`. Otherwise the selected record's X/Z values form a second
+normalized vector with Y replaced by lower. The native model forms `up cross
+basis`, weights that right vector by normalized horizontal and the basis by
+normalized vertical, adds the rounded products, and normalizes the result.
+
+Cross products, subtraction and sign-bit negation round separately. Scalar
+products round before additions, preserving the different Y operand order and
+generated subnormals. The model exposes each stage. Input preparation,
+selected-basis composition and final normalization have separate transactional
+interfaces, with a convenience operation for ordinary native callers. Guest
+pointer reads are deferred until the input branch is active. Integer conversions
+can observe incoming host rounding before subsequent vector stages install
+guest rounding; the adapter preserves both phases.
+
+Guest selection uses the full original slot arithmetic with a wrapped 32-bit
+`slot * 12` address offset. No speculative end bound is invented. Selected fields
+are at record `+64/+68/+72`; the middle value is overwritten before normalization.
+The adapter writes object `+576/+580/+584`. It reproduces the complete original
+stack writes and argument homes, branch-specific returns, all scalar/vector
+register results and final disabled scalar flush mode. Raw fourth lanes at frame
+`+140` and `+124` remain explicit inputs. Before final normalization, a local byte
+overlay reconstructs the raw vector load after staged unaligned scalar stores;
+the normalized XYZ stores still round their addresses down to four bytes.
+
+Aliases that could change later constants, selected pointers, saved registers or
+stack sources retain the ordered translation. A final output overlapping the
+normalization threshold also retains the original post-write threshold read.
+Unknown math domains restore both saved FP words before fallback. The native
+interface does not identify the selected record's gameplay ownership or timing.
+
+All three direction adapters use `src/guest_memory_address.h`. This matches the
+pinned translation's physical-memory host bias of `+0x1000` at guest addresses
+`0xE0000000` and above on Windows and Apple ARM64. Address arithmetic and alias
+checks use translated host offsets. Ranges crossing that bias boundary retain
+the original separate-access sequence. The helper validates arithmetic rather
+than establishing that arbitrary guest memory is mapped.
 
 ## Capped accumulation and optional accounting
 
@@ -791,9 +836,9 @@ combinations. `native_direction_accumulation` checks editable direction/state,
 both selections, double-product/float-add boundaries, generated subnormals and
 rollback.
 
-`direction_normalization_equivalence` compares 4,384 calls (3,184 native and
-1,200 retained). `direction_accumulation_equivalence` compares 2,816 calls
-(1,216 native). Both check every fixture byte, including native scratch and
+`direction_normalization_equivalence` compares 4,640 calls (3,400 native and
+1,240 retained). `direction_accumulation_equivalence` compares 3,072 calls
+(1,440 native). Both check every fixture byte, including native scratch and
 argument-home writes, all 32 GPRs/FPRs, all 128 VMX registers, all condition fields,
 LR/CTR/XER, preserved state, indirect registration and FP controls. Fixtures cover
 all rounding/starting flush modes, unaligned sources/outputs, safe overlaps,
@@ -801,7 +846,31 @@ scratch aliases, exceptional values, underflow/overflow, unmasked exact calls an
 explicit host/guest control divergence. Sticky exception flags are outside the
 comparison; no scratch is normalized away for these two entries.
 
-Both Windows configurations pass thirty-eight suites. A 24-second isolated
+The direction fixtures additionally compare high physical source/output/stack
+addresses, every source alignment, physical aliases, upper pages and shadow-boundary
+fallback. Independent test address mapping and unchanged unbiased-memory canaries
+prevent the implementation's address helper from serving as its own oracle.
+
+`native_direction_basis` checks the phased interface, deferred unused operands,
+signed axes and basis orientation, edited constants, each cross/weighted stage,
+independently rounded integer inputs, scalar subnormals and final DAZ, altered
+fourth lanes and early/late transactional rejection. `direction_basis_equivalence`
+compares 4,672 calls (3,728 native and 944 retained), plus 384 retained outer calls
+using the production normalizer. A switch compiled only into this test forces
+all nested normalizers retained in the independent oracle. Every fixture byte,
+all GPR/FPR/VMX registers, condition fields and FP/control state are checked.
+Coverage includes wrapping slots, overwritten prologue pointers, independent
+host/guest rounding, high physical records and slots, shadow canaries, arbitrary
+initial output bits, unaligned final stores and wrapped raw fourth lanes. Its
+physical cases include 168 native and 88 retained routes. No original scratch is
+removed from these comparisons. Sticky FP status remains outside the contract.
+
+Physical-shadow fixtures currently cover the three direction adapters. Forty
+older memory-backed typed entries still require mapped accesses, alias/range
+guards and corresponding high-address fixtures. Their earlier comparisons
+establish virtual-address behavior only; this remains part of the conversion work.
+
+Both Windows configurations pass forty suites. A 24-second isolated
 Direct3D Release startup reaches menu installation and frame pacing without
 logged errors; Windows EXE/plugin privacy scans pass. These are synthetic and
 startup checks, with no additional gameplay or performance claim.

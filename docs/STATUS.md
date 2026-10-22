@@ -13,7 +13,7 @@ the tested opening route. Full-game coverage remains unvalidated.
 - Generated 13,762 function assignments across 87 translated C++ source files.
 - Windows x64 Release and RelWithDebInfo compile and link succeed with Clang 20.1.8.
 - Runtime initializes Direct3D 12, input, audio, and XEX imports.
-- Five JavaScript extractor tests and thirty-eight native regression suites pass.
+- Five JavaScript extractor tests and forty native regression suites pass.
 - A 30-second boot test survived until the harness stopped it, without the prior
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
@@ -803,3 +803,48 @@ the published build with twenty-six. The larger direction-basis caller
 `0x8209D9B0` remains translated and is the next connected conversion boundary.
 The full readable-C++ game-code conversion remains active; build/release tooling
 is unchanged and Vulkan remains parked.
+
+## Native direction basis and physical address mapping
+
+Entry `0x8209D9B0` now composes typed signed-axis input, selected basis and output
+state. It preserves the no-write, null/default and composed-basis branches.
+The active branch normalizes the basis, derives a right vector with separately
+rounded cross operations, weights the two directions and normalizes their sum.
+The model exposes input preparation, deferred selected-record composition and
+finalization separately. Explicit rounded input lets initial scalar conversions
+use incoming host rounding while later vector math uses guest rounding.
+
+The guest adapter preserves wrapped `slot * 12` addressing, all register results,
+the full original scratch and argument-home writes, and raw fourth lanes. A local
+overlay reconstructs the last vector load after unaligned scalar stores, before
+the final normalized stores round their addresses down. Prologue/source aliases,
+post-write threshold dependencies and unsupported math retain the original.
+
+The three direction adapters now use the pinned runtime's physical-memory host
+bias at guest `0xE0000000` and above. All scalar/raw accesses and alias checks use
+the mapped host offsets. Cross-boundary buffers retain the original sequence.
+An audit found forty older memory-backed typed entries still need this migration
+and physical fixtures. Their current equivalence evidence covers virtual memory.
+The next memory batch connects handle, payload, table and accounting adapters
+before the geometry/vector/primitives, audio and cached-clock families.
+
+Both Windows configurations pass forty suites. Basis equivalence compares
+4,672 calls (3,728 native), plus 384 production nested-normalizer compositions.
+Its independent oracle forces all three nested normalizers retained. Expanded
+normalization equivalence covers 4,640 calls (3,400 native); accumulation covers
+3,072 (1,440 native). All three suites compare whole fixtures including scratch
+and argument homes, all scalar/vector registers and control state. Physical cases
+use independent address setup and unbiased-memory canaries. Coverage includes
+high inputs, records, targets, stacks, wrapped table cells, aliases and boundary
+fallback. A physical home-alias fixture was corrected to keep the original's
+reloaded pointer mapped; no implementation change was needed for that fixture.
+Portable basis tests cover edited state/parameters, deferred operands, phase
+rounding, sign-sensitive cross operations, scalar underflow and transactional
+rejection. Transient sticky exception status remains outside these FP contracts.
+
+A fresh-profile 24-second Direct3D Release startup reaches menu installation
+and frame pacing without logged errors. Both Windows EXEs and Direct3D plugins
+pass binary privacy scans. These checks establish no additional gameplay route,
+speed improvement, corrected animation timing or full-game platform support.
+Development now has forty-five typed native entry points; Alpha 7 still packages
+twenty-six. The complete readable-C++ game-code conversion remains in progress.

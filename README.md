@@ -21,7 +21,7 @@ is identified in [game-build.json](docs/game-build.json).
 
 ## Play the Windows alpha
 
-**[Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.7/N3-Recompiled-v0.1.0-alpha.7-windows-x64.zip)**
+**[Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.8/N3-Recompiled-v0.1.0-alpha.8-windows-x64.zip)**
 
 Extract the whole ZIP and run **n3.exe**. Select an ISO made from your own
 disc, or `default.xex` in your own extracted game folder with `data/` beside it.
@@ -38,15 +38,15 @@ folder when updating; replace the application folder with the new release.
 An existing extracted game folder is linked in place. The package contains
 no game assets or original executable. See the [release guide](docs/RELEASE-README.txt).
 
-[Release notes, checksums, and optional developer sources](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/tag/v0.1.0-alpha.7)
+[Release notes, checksums, and optional developer sources](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/tag/v0.1.0-alpha.8)
 are available separately. Only the Windows ZIP is needed to play.
 
-Alpha 7 includes 26 typed native C++ replacements: the frame clock, shape bounds
-and projections, vector updates and cached channels, a frame countdown, scalar
-arithmetic, bit reading, and fixed-block delay/feedback processing. Tests compare
-them against the retained translated routines. Filtering now uses only numeric
-1x/2x/4x/8x/16x choices. Windows still uses Direct3D 12. This engine work does not
-claim a speedup or fix higher-FPS animation timing.
+Alpha 8 includes 45 typed native C++ entry points. It adds connected table values,
+percentage updates, capped accounting, handle/payload operations and direction
+normalization/basis composition, plus more delay/feedback processing. Tests
+compare supported behavior against the retained translations. Filtering uses
+numeric 1x/2x/4x/8x/16x choices. Windows still uses Direct3D 12. This engine work
+does not claim a speedup or fix higher-FPS animation timing.
 
 The emerald N3 icon is embedded in `n3.exe` and appears on the application window
 and Windows shortcuts made from it. To add a desktop shortcut, right-click
@@ -159,7 +159,7 @@ pwsh -NoProfile -File tools/symbolize-fault.ps1
 
 The build runs native clock, geometry, vector, delay/mixing/feedback,
 table-derived value, percentage/modifier, capped accumulation, handle lookup,
-payload transfer/installation, direction normalization/accumulation and
+payload transfer/installation, direction normalization/accumulation/basis and
 countdown/scalar/bit tests, plus callback floating-point, disc importer, game-path,
 crash-report, frame-rate, menu-layout, profile persistence, and host presentation
 regression tests. The Xenos GPU
@@ -196,15 +196,14 @@ notices, scans binaries for local identifiers, and writes ZIP checksums under
 
 The [native engine module notes](docs/NATIVE-CODE.md) describe the typed frame
 clock, geometry, vector, delay/mixing/feedback, table-value, handle, payload,
-direction normalization/accumulation, countdown, scalar and bit-field routines,
+direction normalization/accumulation/basis, countdown, scalar and bit-field routines,
 guest-memory boundaries, and comparisons against the translated game code.
 
 The [game-code conversion plan](docs/CONVERSION-PLAN.md) tracks the typed
 interfaces and remaining subsystem work separately from generated translations
-and development tooling. Development includes 44 typed native entry points,
-checked against the retained translations. Alpha 7 remains the published build
-with 26 entries. See [status](docs/STATUS.md) for
-the checks and their limits.
+and development tooling. Development includes 45 typed native entry points,
+checked against the retained translations and included in Alpha 8.
+See [status](docs/STATUS.md) for the checks and their limits.
 
 The next platform work targets Vulkan and Apple Silicon. Portable native
 components can already build without game data or the Xbox runtime; the full

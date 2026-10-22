@@ -1,4 +1,4 @@
-N3 Recompiled - v0.1.0-alpha.7 (Windows x64)
+N3 Recompiled - v0.1.0-alpha.8 (Windows x64)
 
 GET STARTED
 1. Extract the entire Windows x64 ZIP to a writable folder.
@@ -60,17 +60,19 @@ Explicit game-data folders are verified before startup. Import destinations
 must not exist; unsuccessful/cancelled imports clean up their newly created tree.
 
 NATIVE ENGINE MODULES
-This release includes 26 typed native C++ replacements: the frame-clock
-initializer, sphere/capsule/box bounds and projections, vector updates and cached
-channel setters, a frame countdown, scalar arithmetic, bit reading, ratio-based
-vector accumulation, and fixed-block delay/feedback processing. Native modules
-accept explicit state and inputs separately from guest registers and memory
-addresses. Tests compare them against retained translated routines, preserving
-original rounding, flags and fallback for unsupported cases. Twenty-three
-Windows suites and ten portable component suites on Windows, Linux and Apple
-Silicon pass. The playable game remains Windows x64 with Direct3D 12. These
-changes do not establish a speed improvement or correct accelerated animations
-in higher frame-rate modes.
+This release includes 45 typed native C++ entry points: the existing clock,
+geometry, vector and primitive operations, additional delay/feedback kernels,
+table-derived values and percentage updates, capped accounting, handle/payload
+operations, direction normalization and selected-basis composition. Native
+modules accept explicit state and inputs separately from guest registers and
+memory addresses. Tests compare supported behavior against retained translated
+routines, preserving rounding, flags and fallback for unsupported cases.
+Forty Windows suites and eighteen portable component suites on Windows, Linux
+and Apple Silicon pass. Physical-memory shadow mapping is tested for the three
+direction adapters; forty earlier memory-backed entries still need that broader
+address coverage. See the source conversion notes for supported domains.
+The playable game remains Windows x64 with Direct3D 12. These changes do not
+establish a speed improvement or correct accelerated higher-FPS animations.
 
 ALPHA STATUS
 The first mission, the following cutscene, and writing a save have been exercised

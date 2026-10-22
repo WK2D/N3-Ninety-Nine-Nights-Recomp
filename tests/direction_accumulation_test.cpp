@@ -16,7 +16,10 @@ extern PPCFuncMapping PPCFuncMappings[];
 thread_local bool n3_direction_accumulation_native_used = false;
 void Require(bool ok, const char* message) { if (!ok) throw std::runtime_error(message); }
 struct Region { uint32_t start, size; };
-constexpr std::array<Region, 2> regions{{{0, 0x20000}, {0x8205b000, 4096}}};
+constexpr std::array<Region, 5> regions{{{0, 0x20000}, {0x8205b000, 4096},
+    {0xdfff0000, 0x20000}, {0xe1000000, 0x20000}, {0xffffb000, 0x4000}}};
+// Independent fixture implementation of the Windows translation's address rule.
+uint64_t HostOffset(uint32_t address) { return uint64_t(address) + (address >= 0xe0000000u ? 0x1000u : 0u); }
 struct Guest {
   uint8_t* base;
   Guest() : base(static_cast<uint8_t*>(VirtualAlloc(nullptr, size_t{1} << 32, MEM_RESERVE, PAGE_NOACCESS))) {
@@ -36,7 +39,7 @@ struct Guest {
       if (std::memcmp(base + region.start, other.base + region.start, region.size)) return false;
     return true;
   }
-  void Word(uint32_t at, uint32_t bits) { rex::memory::store_and_swap<uint32_t>(base + at, bits); }
+  void Word(uint32_t at, uint32_t bits) { rex::memory::store_and_swap<uint32_t>(base + HostOffset(at), bits); }
 };
 int main() {
   using Platform = rex::platform::FPSCRPlatform;
@@ -55,13 +58,27 @@ int main() {
     for (auto region : regions)
       for (uint32_t i = 0; i < region.size; ++i) seed.base[region.start + i] = uint8_t(random());
     uint32_t comparisons = 0, native_count = 0, native_default = 0, native_override = 0;
+    uint32_t physical_native = 0, physical_retained = 0;
     for (rounding = 0; rounding < 4; ++rounding) for (bool next_flush : {false, true}) {
       flush = next_flush;
-      for (sample = 0; sample < 288; ++sample) {
+      for (sample = 0; sample < 320; ++sample) {
         expected.Copy(seed);
         uint32_t object = 0x1000 + sample % 16, stack = 0x18000;
         double amount = sample < 32 ? (sample % 2 ? -0.0 : 0.0) : 0.5;
         bool must_native = true;
+        if (sample >= 288) {
+          const auto physical_case = sample - 288;
+          object = 0xe1001000u + physical_case % 16;
+          if (physical_case >= 16) stack = 0xe100a000u;
+          if (physical_case == 24) { object = stack - 576; must_native = false; }
+          if (physical_case == 25) { object = 0xdffffe00u; must_native = false; }
+          if (physical_case == 26) stack = 0xe0000000u;
+          if (physical_case == 27) stack = 0xe0000010u;
+          if (physical_case == 28) { object = 0xffffb000u; stack = 0xffffd800u; }
+          if (physical_case == 29) { object = 0xdffffdc0u; must_native = false; }
+          if (physical_case == 30) object = 0xe0000000u;
+          if (physical_case == 31) { object = 0xe100100fu; stack = (object + 580) & ~15u; must_native = false; }
+        }
         auto vector = [&](uint32_t at, uint32_t x, uint32_t y, uint32_t z) {
           expected.Word(at, x); expected.Word(at + 4, y); expected.Word(at + 8, z);
         };
@@ -119,14 +136,17 @@ int main() {
           if (alias == 3) stack = 0x8205b620;
           must_native = false;
         }
-        if (sample >= 272) {
+        if (sample >= 272 && sample < 288) {
           // Exact arithmetic stays safe even when a policy deliberately unmasks
           // every exception. Each divergence case tests actual host/guest controls.
           vector(object + 64, 0x3f800000, 0, 0); vector(object + 564, 0, 0, 0);
           vector(object + 576, sample % 2 ? 0x3f800000 : 0, 0, 0); amount = 1;
         }
+        std::array<uint8_t, 12> unbiased_current{};
+        const bool physical_current = object + 564 >= 0xe0000000u;
+        if (physical_current) std::copy_n(expected.base + object + 564, 12, unbiased_current.begin());
         actual.Copy(expected);
-        for (divergence = 0; divergence < (sample >= 272 ? 5u : 1u); ++divergence) {
+        for (divergence = 0; divergence < (sample >= 272 && sample < 288 ? 5u : 1u); ++divergence) {
           if (divergence) { expected.Copy(seed); actual.Copy(seed); }
           // Extra policies reuse identical, fully initialized input memory.
           if (divergence) {
@@ -173,8 +193,13 @@ int main() {
           Require(n3_direction_accumulation_native_used == policy_native, "Direction native/fallback route differs");
           if (policy_native) {
             ++native_count;
+            if (sample >= 288) ++physical_native;
             if (original.cr6.gt || original.cr6.so) ++native_override; else ++native_default;
-          }
+          } else if (sample >= 288) ++physical_retained;
+          if (physical_current)
+            Require(std::equal(actual.base + object + 564, actual.base + object + 576, unbiased_current.begin()) &&
+                    std::equal(expected.base + object + 564, expected.base + object + 576, unbiased_current.begin()),
+                    "Physical direction accumulation changed the unbiased current-vector canary");
           Require(expected.Same(actual), "Direction accumulation whole-fixture bytes differ");
 #define GPR(n) Require(original.r##n.u64 == replacement.r##n.u64, "Direction accumulation GPR result differs");
           GPR(0) GPR(1) GPR(2) GPR(3) GPR(4) GPR(5) GPR(6) GPR(7) GPR(8) GPR(9) GPR(10) GPR(11)
@@ -204,6 +229,7 @@ int main() {
     }
     Platform::setcsr(saved);
     Require(native_default && native_override, "Both direction choices must be exercised natively");
+    Require(physical_native >= 200 && physical_retained == 32, "Physical direction mapping, shadow boundary or alias routes lacked coverage");
     std::cout << comparisons << " direction accumulation equivalence cases (" << native_count
               << " native), full scalar/VMX state, FP divergence and alias fallback passed\n";
   } catch (const std::exception& error) {
