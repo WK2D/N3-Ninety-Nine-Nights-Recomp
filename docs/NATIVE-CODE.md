@@ -258,6 +258,40 @@ callback stacks; processing performs no callbacks and publishes no partial nativ
 result. Existing owner-thread and valid-storage requirements remain in force.
 Native arithmetic uses caller rounding, disabled scalar flush and masked traps.
 
+## Feedback-delay processing
+
+`src/native/feedback_delay.h` adds `FeedbackDelayState` with an explicit delay,
+output gain, feedback gain, previous output and cursor. `TryProcessFeedbackDelay`
+implements the entry at `0x8253C310` through `src/feedback_delay_hooks.cpp`. The
+verified guest fields are delay at `+0`, output/feedback gains at `+4/+8`, previous
+output at `+12`, cursor at `+16` and 256 history samples at `+24`. `r4` points to a
+257-float in-place buffer; its first 256 values are input samples.
+
+For each sample the model reads the delayed history, computes a float32-rounded
+double FMA of feedback gain, delayed value and input, and stores that result back
+into history. A second rounded double FMA of output gain, feedback result and
+delayed value produces the new output. The output buffer begins with the old
+cached output, followed by 256 new results; the final result becomes the next
+cache. Delays wrap modulo 256, including delay zero's old-history read. Native
+callers can edit both gains and delay without registers or guest addresses.
+
+The supported cursor is zero because the original writes a contiguous full
+256-sample history. Other cursors retain the original path. Source subnormals,
+NaNs/infinities, overlapping storage, wrapping guest ranges, original stack
+overlaps and unmasked traps also fall back. The source buffer's output-only last
+element is not interpreted as an input value. Generated subnormals are preserved.
+
+Feedback can become nonfinite after several samples. The native model stages
+history/output and commits only after the entire block has finite trial results;
+rejection changes no caller state or buffers. The adapter restores saved FP
+controls/status before invoking the retained translation. Directed-rounding
+overflow that remains finite is supported and retains its saturated value.
+Two bounded local staging arrays use about 2 KiB; the adapter's guest snapshots
+use private per-thread storage. Processing invokes no callbacks and remains on
+the existing owner thread. Caller rounding, disabled scalar flush and masked
+traps are required by the native model. Effect routing and listening validation
+are still pending; no gain or timing option is added to the game.
+
 ## Verification
 
 `native_frame_clock` runs in the portable component build on Windows, Linux and
@@ -341,6 +375,19 @@ caller scratch; fallback cases compare every byte. Checks include `f1/f2`, point
 advancement, cursor, all nonvolatile GPR/FPRs, condition/carry flags, exception
 controls and indirect registration. These are kernel comparisons, not listening
 tests or a performance measurement.
+
+`native_feedback_delay` checks gain/delay edits, eight-block feedback continuity,
+modulo delays, old-history reads, impulse decay through generated subnormals,
+the unread output tail and rejection without partial publication, including late
+overflow. `feedback_delay_equivalence` compares the retained entry in 2,512 block
+cases across all four rounding modes and both starting flush modes. It covers
+eight-block chains, positive/negative overflow and finite saturation, generated
+subnormals, source exceptions, unsupported cursors, unaligned/overlapping buffers,
+stack aliases and unmasked exact arithmetic. Whole-buffer checks normalize only
+unchanged native caller scratch (32 bytes); fallback cases compare every byte.
+They also check native-path use, pointer/cursor results, preserved `f1/f2`, all
+nonvolatile GPR/FPRs, condition/carry flags, FP controls and indirect registration.
+These are kernel comparisons, not perceptual or performance measurements.
 
 These replacements do not fix accelerated animation at higher FPS. Animation, combat and
 scripted-event update paths still require matched-scene tracing and comparisons
