@@ -13,7 +13,7 @@ the tested opening route. Full-game coverage remains unvalidated.
 - Generated 13,762 function assignments across 87 translated C++ source files.
 - Windows x64 Release and RelWithDebInfo compile and link succeed with Clang 20.1.8.
 - Runtime initializes Direct3D 12, input, audio, and XEX imports.
-- Five JavaScript extractor tests and nineteen native regression suites pass.
+- Five JavaScript extractor tests and twenty-one native regression suites pass.
 - A 30-second boot test survived until the harness stopped it, without the prior
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
@@ -412,6 +412,29 @@ The development build now has twenty-two typed native entry points; Alpha 6
 remains the published release with eighteen. These checks do not establish
 player-hitbox roles, further mission coverage, improved performance or corrected
 higher-FPS animation timing.
+
+## Native fixed-block delay/mixing kernels
+
+Entries `0x8253BED8` and `0x8253C240` now use a typed native delay-block model with
+512/2048-sample histories. Three tap delays/gains, cached outputs and cursor are
+explicit editable C++ state. The model preserves the original 256-sample block,
+257-sample outputs, read-before-write order, rounded tap products, double FMA and
+cached-output prefix. Unsupported cursors, exceptional sources, aliases and
+unmasked traps retain the translations. Per-thread workspace avoids placing
+large history snapshots on callback stacks. See [delay contracts](NATIVE-CODE.md).
+
+Both Windows configurations pass twenty-one suites. The equivalence suite passes
+5,024 block comparisons against the retained translations across all rounding
+and starting flush modes, including eight-block chains through cursor wraparound.
+It checks whole-buffer history/state/output bytes, native-path use, unsupported
+cases, all nonvolatile registers, output registers/pointers and FP controls.
+Portable tests exercise delay/gain edits, continuity and rejection without
+mutation. An isolated 24-second Release startup presents through Direct3D 12 at
+requested 60 FPS without logged errors; its harness stops only its own child.
+Binary privacy scans pass. This brings development to twenty-four typed native
+entry points; Alpha 6 remains the published release with eighteen. Effect routing,
+listening comparisons, performance and broader gameplay coverage remain unvalidated.
+No animation-timing change is made.
 
 ## Next validation work
 

@@ -20,7 +20,7 @@ include(CTest)
 
 add_library(n3_native STATIC src/native/frame_clock.cpp src/native/shape_bounds.cpp src/native/vector_ops.cpp
     src/native/frame_countdown.cpp src/native/scalar_math.cpp src/native/box_geometry.cpp
-    src/native/shape_projection.cpp)
+    src/native/shape_projection.cpp src/native/delay_block.cpp)
 target_include_directories(n3_native PUBLIC src)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(n3_native PRIVATE -ffp-model=strict -ffp-contract=off)
@@ -62,6 +62,9 @@ if(BUILD_TESTING)
     add_executable(n3_native_projection_test tests/native_projection_test.cpp)
     target_link_libraries(n3_native_projection_test PRIVATE n3_native)
     add_test(NAME native_shape_projection COMMAND n3_native_projection_test)
+    add_executable(n3_native_delay_test tests/native_delay_test.cpp)
+    target_link_libraries(n3_native_delay_test PRIVATE n3_native)
+    add_test(NAME native_delay_block COMMAND n3_native_delay_test)
     add_executable(n3_game_data_test tests/game_data_test.cpp)
     target_link_libraries(n3_game_data_test PRIVATE n3_game_data)
     add_test(NAME game_data_import COMMAND n3_game_data_test)
@@ -89,6 +92,7 @@ set(N3_SOURCES
     src/engine_primitives_hooks.cpp
     src/box_geometry_hooks.cpp
     src/shape_projection_hooks.cpp
+    src/delay_block_hooks.cpp
     src/game_setup.cpp
     src/frame_rate.cpp
     src/display_settings.cpp
@@ -153,6 +157,11 @@ if(BUILD_TESTING)
     target_link_libraries(n3_shape_projection_test PRIVATE n3_native n3_recomp rex::runtime)
     rexglue_apply_target_settings(n3_shape_projection_test)
     add_test(NAME shape_projection_equivalence COMMAND n3_shape_projection_test)
+    add_executable(n3_delay_block_test tests/delay_block_test.cpp src/delay_block_hooks.cpp)
+    target_include_directories(n3_delay_block_test PRIVATE src)
+    target_link_libraries(n3_delay_block_test PRIVATE n3_native n3_recomp rex::runtime)
+    rexglue_apply_target_settings(n3_delay_block_test)
+    add_test(NAME delay_block_equivalence COMMAND n3_delay_block_test)
     add_executable(n3_profile_config_test tests/profile_config_test.cpp src/profile_config.cpp)
     target_include_directories(n3_profile_config_test PRIVATE src)
     target_link_libraries(n3_profile_config_test PRIVATE rex::runtime)

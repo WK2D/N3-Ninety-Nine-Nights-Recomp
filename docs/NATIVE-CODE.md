@@ -217,6 +217,47 @@ caller rounding, disabled scalar flush and masked traps. State remains on the
 game's existing owner thread. These interfaces do not identify player hitboxes or
 introduce user-facing geometry edits.
 
+## Fixed-block delay and mixing
+
+`src/native/delay_block.h` exposes `DelayBlockState`: three tap delays/gains, two
+previous outputs and a write cursor. `TryProcessDelayBlock` accepts explicit
+history, 256 input samples and two 257-sample output buffers. Two entries use
+this model through `src/delay_block_hooks.cpp`:
+
+| Entry | History length | Verified state layout |
+| --- | --- | --- |
+| `0x8253BED8` | 512 float samples | Tap delay/gain at `+0/+4`, `+12/+16`, `+24/+28`; previous outputs at `+8/+32`, cursor at `+36`, history at `+44` |
+| `0x8253C240` | 2048 float samples | Same fields, with the larger history mask |
+
+Both kernels read all three history taps before writing the current input. The
+mixed output is a double FMA of the first tap/gain and the float32-rounded second
+tap/gain product, narrowed to float32. The auxiliary output is the rounded third
+tap/gain product. Delays wrap modulo history length; delay zero reads old history
+at the write cursor, not the current input. Each output begins with the cached
+previous result, followed by 256 new results. The last results become the new
+cached values and the cursor advances by 256 samples with wraparound.
+
+Native callers can edit tap delays/gains and process successive blocks without
+guest registers or addresses. The verified callers use these fixed-size blocks;
+the surrounding effect identity, perceptual behavior and routing still need
+tracing. This does not introduce an audio-effect menu or change output gains.
+
+The supported native cursor is block-aligned and leaves a complete contiguous
+block within history. The original writes history contiguously, so unsupported
+cursors retain that behavior through fallback rather than being silently wrapped
+sample by sample. Overlapping state/history/input/output buffers, exceptional or
+subnormal source values and unmasked FP traps also retain the original. Rejected
+native calls mutate no state or buffers. Finite sources can still produce
+overflow/underflow results, preserving the original arithmetic.
+
+The guest adapter preserves untouched fields, output-pointer advancement, cached
+results in `f1/f2`, cursor in `r7`, final condition flags and nonvolatile state.
+It rejects wrapping guest ranges and overlap with the original 48-byte stack
+scratch. A private per-thread workspace avoids large history snapshots on small
+callback stacks; processing performs no callbacks and publishes no partial native
+result. Existing owner-thread and valid-storage requirements remain in force.
+Native arithmetic uses caller rounding, disabled scalar flush and masked traps.
+
 ## Verification
 
 `native_frame_clock` runs in the portable component build on Windows, Linux and
@@ -287,6 +328,19 @@ controls and indirect registration. Ordinary fixtures assert native-path use.
 Capsule checks compare every fixture byte; box-sphere checks normalize only its
 dead 96-byte caller stack frame in non-overlapping masked cases. No further
 mission coverage or performance improvement follows from these synthetic checks.
+
+`native_delay_block` checks tap edits, modulo delays, old-history reads, output
+prefix/continuity, cursor wrap, unchanged history outside the block and rejection
+without mutation. `delay_block_equivalence` compares both translations in 5,024
+block cases across all rounding/starting flush modes. Eight-block sequences pass
+through wraparound for both history lengths. Whole-buffer checks cover state,
+history, input and both outputs, including arbitrary tap delays, unaligned
+buffers, finite extremes, exceptional values, unsupported cursors and aliases.
+Native cases explicitly prove hook use and normalize only untouched 48-byte
+caller scratch; fallback cases compare every byte. Checks include `f1/f2`, pointer
+advancement, cursor, all nonvolatile GPR/FPRs, condition/carry flags, exception
+controls and indirect registration. These are kernel comparisons, not listening
+tests or a performance measurement.
 
 These replacements do not fix accelerated animation at higher FPS. Animation, combat and
 scripted-event update paths still require matched-scene tracing and comparisons
