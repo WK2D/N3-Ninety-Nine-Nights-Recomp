@@ -8,13 +8,34 @@ extern "C" void __imp__sub_8209D718(PPCContext&, uint8_t*);
 extern "C" void __imp__sub_8209DCF0(PPCContext&, uint8_t*);
 extern "C" void __imp__sub_8209DDE8(PPCContext&, uint8_t*);
 extern "C" void __imp__sub_820A13B0(PPCContext&, uint8_t*);
+extern "C" void __imp__sub_8209D688(PPCContext&, uint8_t*);
+extern "C" void __imp__sub_820B4DC8(PPCContext&, uint8_t*);
 #ifdef N3_BOUNDED_ORACLE_SWITCH
 // The differential target can run the retained caller and its retained callee
 // together. This switch is absent from the game build.
 extern thread_local bool n3_bounded_original_callee;
 #endif
+#ifdef N3_PERCENTAGE_ORACLE_SWITCH
+extern thread_local bool n3_percentage_original_callees;
+#endif
 namespace {
 using namespace n3::native;
+thread_local uint32_t retained_chain_depth = 0;
+bool RetainLimitChain() {
+#ifdef N3_PERCENTAGE_ORACLE_SWITCH
+  if (n3_percentage_original_callees) return true;
+#endif
+  return retained_chain_depth != 0;
+}
+void CallRetainedChain(PPCContext& ctx, uint8_t* base, void (*original)(PPCContext&, uint8_t*)) {
+  // A retained outer caller may read bytes that its callees used as scratch.
+  // Keep the entire unsupported call chain in its original execution order.
+  struct Scope {
+    Scope() { ++retained_chain_depth; }
+    ~Scope() { --retained_chain_depth; }
+  } scope;
+  original(ctx, base);
+}
 constexpr uint32_t table_pointer = 0x82b60088, percentage_unit = 0x82042048;
 constexpr uint32_t baseline = 0x8205b614, lower_bound = 0x8205b610;
 uint32_t Read(uint8_t* base, uint32_t at) { return rex::memory::load_and_swap<uint32_t>(base + at); }
@@ -140,17 +161,82 @@ bool SetModifier(PPCContext& ctx, uint8_t* base) {
   ctx.lr = uint32_t(ctx.lr);
   return true;
 }
+bool AdjustPercentage(PPCContext& ctx, uint8_t* base) {
+  LimitInputs inputs;
+  if (!ReadLimit(ctx, base, 256, inputs)) return false;
+  const auto saved_host = rex::platform::FPSCRPlatform::getcsr(), saved_guest = ctx.fpscr.csr;
+  ctx.fpscr.disableFlushMode();
+  ValueLimitState state{inputs.parameters, Float(base, ctx.r3.u32 + 664)};
+  const auto lower = Float(base, lower_bound);
+  PercentageValueUpdate update;
+  if (!TryAdjustValueByPercentage(state, ctx.r4.s32, lower, update)) {
+    ctx.fpscr.csr = saved_guest; rex::platform::FPSCRPlatform::setcsr(saved_host); return false;
+  }
+  rex::memory::store_and_swap<uint32_t>(base + ctx.r3.u32 + 664, std::bit_cast<uint32_t>(state.value));
+  ctx.r3.u64 = update.limit.value; ctx.r4.u64 = uint64_t(inputs.record) * 3;
+  ctx.r7.u64 = inputs.channel * 4; ctx.r9.u64 = inputs.parameters.additive_offset;
+  ctx.r8.u64 = uint64_t(inputs.record) * 2;
+  ctx.r10.s64 = std::bit_cast<int32_t>(uint32_t(update.limit.value));
+  ctx.r11.s64 = int32_t(0x82060000u);
+  ctx.f0.f64 = double(update.bounded.upper_bound); ctx.f13.f64 = double(lower);
+  ctx.xer.ca = false;
+  ctx.cr6.compare(double(update.bounded.lower_result), double(update.bounded.upper_bound));
+  ctx.lr = uint32_t(ctx.lr);
+  return true;
+}
+bool ConditionalPercentage(PPCContext& ctx, uint8_t* base) {
+  using namespace n3::guest;
+  const auto object = ctx.r3.u32, stack = ctx.r1.u32;
+  if (stack < 128 || !FitsGuestRange(object, 1380) ||
+      !DisjointGuestRanges(object, 1380, stack - 128, 128)) return false;
+  LimitInputs inputs;
+  if (!ReadLimit(ctx, base, 128, inputs, {8, 736, false})) return false;
+  const auto saved_host = rex::platform::FPSCRPlatform::getcsr(), saved_guest = ctx.fpscr.csr;
+  ctx.fpscr.disableFlushMode();
+  ValueLimitResult limit;
+  ConditionalPercentageValueResult result;
+  const auto first = base[object + 1336];
+  const auto second = first ? 0 : base[object + 719];
+  const auto percentage_bits = (first || second) ? Read(base, object + 1376) : 0;
+  if (!TryComputeValueLimit(inputs.parameters, limit) ||
+      !TryAddConditionalPercentage(limit.truncated_bits, first, second, std::bit_cast<int32_t>(percentage_bits),
+                                   inputs.parameters.percentage_unit, result)) {
+    ctx.fpscr.csr = saved_guest; rex::platform::FPSCRPlatform::setcsr(saved_host); return false;
+  }
+  ctx.r3.u64 = result.value;
+  ctx.r4.u64 = std::bit_cast<uint32_t>(inputs.parameters.percentage_adjustment);
+  ctx.r9.u64 = result.applied ? 1 : 0; ctx.r11.u64 = result.applied ? result.delta.truncated_bits : 0;
+  if (result.applied) {
+    ctx.r5.u64 = ctx.r1.u64 - 32;
+    ctx.r6.s64 = std::bit_cast<int32_t>(percentage_bits);
+    ctx.r7.s64 = std::bit_cast<int32_t>(limit.truncated_bits); ctx.r8.u64 = percentage_bits;
+    ctx.f13.s64 = std::bit_cast<int32_t>(percentage_bits); // Original lfd retains the integer bit pattern.
+  } else {
+    ctx.r5.s64 = inputs.parameters.base_value;
+    ctx.r6.u64 = std::bit_cast<uint32_t>(inputs.parameters.base_value);
+    ctx.r7.u64 = uint64_t(inputs.record) * 3; ctx.r8.u64 = ctx.r1.u64 - 128;
+    ctx.f13.f64 = double(inputs.parameters.baseline);
+  }
+  ctx.r10.s64 = first ? int32_t(0x82060000u) : second;
+  ctx.f0.f64 = double(inputs.parameters.percentage_unit);
+  ctx.xer.ca = false; ctx.cr6.compare<uint32_t>(uint32_t(ctx.r9.u64), 0, ctx.xer);
+  ctx.lr = uint32_t(ctx.lr);
+  return true;
+}
 }
 extern "C" void sub_8209DBF0(PPCContext& ctx, uint8_t* base) {
+  if (RetainLimitChain()) return __imp__sub_8209DBF0(ctx, base);
 #ifdef N3_BOUNDED_ORACLE_SWITCH
   if (n3_bounded_original_callee) return __imp__sub_8209DBF0(ctx, base);
 #endif
   if (!Compute(ctx, base, false)) __imp__sub_8209DBF0(ctx, base);
 }
 extern "C" void sub_8209D718(PPCContext& ctx, uint8_t* base) {
+  if (RetainLimitChain()) return __imp__sub_8209D718(ctx, base);
   if (!Compute(ctx, base, true)) __imp__sub_8209D718(ctx, base);
 }
 extern "C" void sub_8209DCF0(PPCContext& ctx, uint8_t* base) {
+  if (RetainLimitChain()) return __imp__sub_8209DCF0(ctx, base);
   if (!ComputeGetter(ctx, base, {8, 736, false})) __imp__sub_8209DCF0(ctx, base);
 }
 extern "C" void sub_8209DDE8(PPCContext& ctx, uint8_t* base) {
@@ -158,4 +244,10 @@ extern "C" void sub_8209DDE8(PPCContext& ctx, uint8_t* base) {
 }
 extern "C" void sub_820A13B0(PPCContext& ctx, uint8_t* base) {
   if (!SetModifier(ctx, base)) __imp__sub_820A13B0(ctx, base);
+}
+extern "C" void sub_8209D688(PPCContext& ctx, uint8_t* base) {
+  if (!AdjustPercentage(ctx, base)) CallRetainedChain(ctx, base, __imp__sub_8209D688);
+}
+extern "C" void sub_820B4DC8(PPCContext& ctx, uint8_t* base) {
+  if (!ConditionalPercentage(ctx, base)) CallRetainedChain(ctx, base, __imp__sub_820B4DC8);
 }

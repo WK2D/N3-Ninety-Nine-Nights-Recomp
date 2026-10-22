@@ -64,4 +64,42 @@ struct ValueLimitModifierUpdate {
 // behavior for aliased memory, or retain that case's original implementation.
 bool TrySetValueLimitModifier(ValueLimitState& state, uint32_t replacement_bits,
                               uint32_t mode, ValueLimitModifierUpdate& update);
+
+struct PercentageDelta {
+  uint32_t truncated_bits;
+  float fraction, scaled;
+};
+// Round both signed integers to float32, then round percentage * unit and
+// fraction * base separately to float32. There is no fused operation or added
+// baseline. Truncation, source restrictions and FP prerequisites match the
+// limit calculation; a rejected trial leaves delta unchanged.
+bool TryComputePercentageDelta(int32_t base, int32_t percentage, float unit, PercentageDelta& delta);
+
+struct PercentageValueUpdate {
+  ValueLimitResult limit;
+  PercentageDelta delta;
+  BoundedValueUpdate bounded;
+};
+// Compute the current limit, use its signed low word to derive an integer
+// percentage delta, then recompute that same limit and apply the bounded delta.
+// No persistent state changes occur between the two limit calculations. The
+// percentage unit comes from state.parameters. All state/details commit only
+// on success; rejected native trials leave them unchanged. Guest adapters must
+// exclude aliases that change original reads through its nested stack scratch.
+bool TryAdjustValueByPercentage(ValueLimitState& state, int32_t percentage, float lower_bound,
+                                PercentageValueUpdate& update);
+
+struct ConditionalPercentageValueResult {
+  uint64_t value;
+  bool applied;
+  PercentageDelta delta;
+};
+// Add a percentage of a previously calculated, zero-extended 32-bit base when
+// either byte flag is nonzero. Multiplication interprets the base bits as signed;
+// the resulting delta bits and base are zero-extended for their 64-bit addition.
+// If both flags are zero, return the base unchanged without inspecting unit or
+// doing percentage arithmetic. The base calculation remains the caller's job.
+// Rejection leaves result unchanged. The same FP prerequisites apply.
+bool TryAddConditionalPercentage(uint32_t base_bits, uint8_t first_flag, uint8_t second_flag,
+                                 int32_t percentage, float unit, ConditionalPercentageValueResult& result);
 }

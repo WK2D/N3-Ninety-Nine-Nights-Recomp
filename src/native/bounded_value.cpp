@@ -13,6 +13,13 @@ bool SupportedSource(float value) {
 }
 bool Finite(float value) { return (std::bit_cast<uint32_t>(value) & 0x7f800000u) != 0x7f800000u; }
 float RoundSigned(int32_t value) { return static_cast<float>(double(value)); }
+bool TryTruncate(float value, uint32_t& bits) {
+  if (!Finite(value) || double(value) < double(std::numeric_limits<int32_t>::min())) return false;
+  const auto truncated = double(value) >= double(std::numeric_limits<int32_t>::max())
+      ? std::numeric_limits<int32_t>::max() : static_cast<int32_t>(double(value));
+  bits = std::bit_cast<uint32_t>(truncated);
+  return true;
+}
 }
 uint32_t SelectValueLimitChannel(uint32_t kind, uint32_t base_channel, uint32_t extra_channel) {
   if (kind != 1000) return base_channel;
@@ -26,10 +33,8 @@ bool TryComputeValueLimit(const ValueLimitParameters& parameters, ValueLimitResu
                                                double(parameters.baseline)));
   const auto base = RoundSigned(parameters.base_value);
   const auto scaled = static_cast<float>(double(factor) * double(base));
-  if (!Finite(factor) || !Finite(scaled) || double(scaled) < double(std::numeric_limits<int32_t>::min())) return false;
-  const auto truncated = double(scaled) >= double(std::numeric_limits<int32_t>::max())
-      ? std::numeric_limits<int32_t>::max() : static_cast<int32_t>(double(scaled));
-  const auto bits = std::bit_cast<uint32_t>(truncated);
+  uint32_t bits;
+  if (!Finite(factor) || !TryTruncate(scaled, bits)) return false;
   result = {bits, uint64_t(bits) + uint64_t(parameters.additive_offset)};
   return true;
 }
@@ -61,6 +66,44 @@ bool TrySetValueLimitModifier(ValueLimitState& state, uint32_t replacement_bits,
   if (upper_clamped) next.value = upper_bound;
   update = {limit, state.value, upper_bound, upper_clamped};
   state = next;
+  return true;
+}
+bool TryComputePercentageDelta(int32_t base, int32_t percentage, float unit, PercentageDelta& delta) {
+  if (!SupportedSource(unit)) return false;
+  const auto percentage_value = RoundSigned(percentage);
+  const auto base_value = RoundSigned(base);
+  const auto fraction = static_cast<float>(double(percentage_value) * double(unit));
+  const auto scaled = static_cast<float>(double(fraction) * double(base_value));
+  uint32_t bits;
+  if (!Finite(fraction) || !TryTruncate(scaled, bits)) return false;
+  delta = {bits, fraction, scaled};
+  return true;
+}
+bool TryAdjustValueByPercentage(ValueLimitState& state, int32_t percentage, float lower_bound,
+                                PercentageValueUpdate& update) {
+  ValueLimitResult first_limit, final_limit;
+  PercentageDelta delta;
+  BoundedValueState bounded_state{state.value};
+  BoundedValueUpdate bounded_update;
+  if (!TryComputeValueLimit(state.parameters, first_limit) ||
+      !TryComputePercentageDelta(std::bit_cast<int32_t>(uint32_t(first_limit.value)), percentage,
+                                 state.parameters.percentage_unit, delta) ||
+      !TryComputeValueLimit(state.parameters, final_limit) ||
+      !TryAdjustBoundedValue(bounded_state, std::bit_cast<int32_t>(delta.truncated_bits),
+                             std::bit_cast<int32_t>(uint32_t(final_limit.value)), lower_bound, bounded_update)) return false;
+  update = {final_limit, delta, bounded_update};
+  state.value = bounded_state.value;
+  return true;
+}
+bool TryAddConditionalPercentage(uint32_t base_bits, uint8_t first_flag, uint8_t second_flag,
+                                 int32_t percentage, float unit, ConditionalPercentageValueResult& result) {
+  if (first_flag == 0 && second_flag == 0) {
+    result = {uint64_t(base_bits), false, {}};
+    return true;
+  }
+  PercentageDelta delta;
+  if (!TryComputePercentageDelta(std::bit_cast<int32_t>(base_bits), percentage, unit, delta)) return false;
+  result = {uint64_t(base_bits) + uint64_t(delta.truncated_bits), true, delta};
   return true;
 }
 }

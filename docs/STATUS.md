@@ -13,7 +13,7 @@ the tested opening route. Full-game coverage remains unvalidated.
 - Generated 13,762 function assignments across 87 translated C++ source files.
 - Windows x64 Release and RelWithDebInfo compile and link succeed with Clang 20.1.8.
 - Runtime initializes Direct3D 12, input, audio, and XEX imports.
-- Five JavaScript extractor tests and twenty-five native regression suites pass.
+- Five JavaScript extractor tests and twenty-eight native regression suites pass.
 - A 30-second boot test survived until the harness stopped it, without the prior
   unregistered-function or floating-point failure.
 - Windowed startup reaches the intro/title-screen presentation.
@@ -656,3 +656,51 @@ Development now includes thirty-four typed native entry points. Alpha 7 still
 packages twenty-six entries. Full game-code conversion remains in progress.
 Generated game translations already compile as C++; this work exposes readable
 typed state and behavior while Python build/release tooling remains intact.
+
+## Native percentage updates and capped accumulation
+
+Entry `0x8209D688` now computes an integer percentage of the table-derived limit
+and applies that delta to the bounded value at `+664`. Both signed integers
+round to float32 before two separately rounded multiplies. The limit is computed
+again before the lower/upper comparisons. Its eleven visible callers include
+fixed percentages and signed record values; their broader gameplay units still
+need matched-scene identification.
+
+Entry `0x820B4DC8` uses the parallel table getter and optionally adds a percentage
+when byte `+1336` or `+719` is nonzero, using signed percentage `+1376`. The base
+and truncated increment bits are zero-extended before a 64-bit addition, retaining
+carry even for negative increments. The inactive branch still calculates the
+base while skipping unused percentage arithmetic. Original data contains function
+pointers to this entry; its indirect use has not been observed at runtime.
+
+The two hooks exclude all nested scratch (256 and 128 bytes respectively), keep
+`f1` through `f4`, and restore controls before rejected trials. A retained outer
+call keeps its entire original nested chain: scratch writes can change later
+flags or percentage reads outside a leaf getter's object range. Tests compare
+all bytes and all GPR/FPR results for these fallback calls without normalizing
+scratch, then verify a later ordinary call still selects native code.
+
+Entry `0x8209D7A8` now exposes scaled accumulation and optional accounting as typed
+state. It adds the converted increment to field `+680` with 32-bit wrapping, then
+caps its signed result at 999999 without a lower clamp. An enabled owner updates
+the total/count at global object offsets `+4712` and `+4708`; stored words wrap
+while register results preserve 64-bit carries. Aliases that would change a
+later source retain the original; aliases with already-consumed sources remain
+supported. No score, currency or experience role is assumed from this arithmetic.
+
+Both Windows configurations pass all twenty-eight suites. Percentage equivalence
+compares 8,352 cases (4,783 native, 3,569 complete retained chains), plus sixteen
+post-fallback native probes. Accumulator equivalence compares 2,064 cases (1,152
+native) and every GPR/FPR result. They cover all rounding/starting flush modes,
+conversion boundaries, negative values, carry, flags, unaligned fields, source
+and scratch aliases, exceptional trials and exact unmasked calls. Portable
+fixtures include a two-rounding counterexample, editable percentage/cap inputs,
+inactive unused sources, accounting wrap and rejection without publication.
+The existing limit comparisons also pass after the shared truncation refactor.
+A fresh-profile 24-second Direct3D Release startup reaches menu installation and
+frame pacing without logged errors; both Windows EXEs and Direct3D plugins pass
+binary privacy scans. These checks do not add gameplay coverage, establish a
+speedup or correct higher-FPS animation timing.
+
+Development now has thirty-seven typed native entries. Alpha 7 remains the
+published build with twenty-six; the full game-code conversion is ongoing.

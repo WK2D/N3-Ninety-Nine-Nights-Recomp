@@ -158,7 +158,7 @@ pwsh -NoProfile -File tools/symbolize-fault.ps1
 ```
 
 The build runs native clock, geometry, vector, delay/mixing/feedback,
-table-derived value, modifier and countdown/scalar/bit tests, plus callback floating-point, disc importer, game-path,
+table-derived value, percentage/modifier, capped accumulation and countdown/scalar/bit tests, plus callback floating-point, disc importer, game-path,
 crash-report, frame-rate, menu-layout, profile persistence, and host presentation regression tests. The Xenos GPU
 plugin is rebuilt from the pinned SDK source with the local live-resolution
 extension in `tools/gpu/`. The first build downloads the corresponding SDK sources
@@ -197,7 +197,7 @@ the translated game code.
 
 The [game-code conversion plan](docs/CONVERSION-PLAN.md) tracks the typed
 interfaces and remaining subsystem work separately from generated translations
-and development tooling. Development includes 34 typed native entry points,
+and development tooling. Development includes 37 typed native entry points,
 compared with the retained translations. Alpha 7 remains the published build
 with 26 entries. See [status](docs/STATUS.md) for
 the checks and their limits.

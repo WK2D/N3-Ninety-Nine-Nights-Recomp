@@ -351,7 +351,7 @@ use per-thread storage, and the shared core requires the existing FP contract.
 ## Table-derived limits and bounded updates
 
 `src/native/bounded_value.h` separates channel selection, limit calculation,
-value adjustment and modifier replacement from guest tables. Five entries use
+value adjustment and modifier replacement from guest tables. Seven entries use
 it through `src/bounded_value_hooks.cpp`. The surrounding class, channel meanings
 and gameplay units remain unidentified; these names describe the verified work.
 
@@ -362,6 +362,8 @@ and gameplay units remain unidentified; these names describe the verified work.
 | `0x8209DCF0` | Parallel table value, no additive offset | `+8` | `+736` |
 | `0x8209DDE8` | Parallel table value, no additive offset | `+40` | `+740` |
 | `0x820A13B0` | Replace modifier, then upper-only comparison | `+88` | `+728` |
+| `0x8209D688` | Add integer percentage of limit to bounded value | `+88` | `+728` |
+| `0x820B4DC8` | Conditional percentage addition to parallel value | `+8` | `+736` |
 
 Descriptors are begin/end pointer pairs under the shared root plus category
 times 16. Parallel getters return zero-extended truncated bits directly.
@@ -413,6 +415,50 @@ The adapters restore FP controls
 and status before unsupported-case fallback. The models require caller rounding,
 disabled scalar flush and masked traps. No gameplay retiming or new stat menu is
 introduced; concrete class roles still need matched-scene tracing.
+
+`TryComputePercentageDelta` explicitly rounds both signed integer sources to
+float32, then separately rounds percentage times unit and fraction times base.
+`TryAdjustValueByPercentage` computes the first limit, derives a signed integer
+delta from its low word, recalculates the limit, then applies the existing
+lower/upper update. Its adapter excludes 256 bytes of nested scratch; no persistent
+state changes occur between the limit reads on this supported path.
+`TryAddConditionalPercentage` uses either nonzero flag byte to enable the extra
+percentage, returning the unchanged base otherwise. Its adapter still computes
+the parallel base first, reads the flags in original short-circuit order and
+excludes 128 bytes of scratch plus the larger 1380-byte object range.
+Zero-extended base and increment bits add in 64 bits, preserving carry.
+
+Unsupported outer percentage calls retain their complete nested translations
+through a scoped thread-local guard. A native leaf getter omits scratch writes;
+mixing it with a retained outer caller could change later aliased flags or
+percentage fields. The guard keeps those writes and original read order together,
+and is released when the retained chain returns. The independent oracle switch
+exists only in the percentage differential test. Both entries preserve `f1`–`f4`,
+return/carry/condition state, the tested incidental registers and LR semantics.
+
+## Capped accumulation and optional accounting
+
+`src/native/capped_accumulator.h` exposes parameters, current integer value,
+optional total/count state and calculation details for entry `0x8209D7A8`.
+Signed delta and percentage adjustment round separately to float32. A rounded
+double FMA creates the factor from percentage, unit and baseline; the product
+rounds again before truncation with positive saturation. The resulting bits add
+to the old value with 32-bit wrap before a signed upper-cap comparison. The
+guest adapter uses cap 999999. It deliberately applies no lower clamp.
+
+The adapter reads percentage `+760`, changes value `+680` and examines owner
+pointer `+824`. A nonzero byte at owner `+696` enables global total/count updates
+at offsets `+4712` and `+4708` under pointer `0x82B60080`. Both counter sources
+are read before either counter write. Low words publish to state while the
+64-bit zero-extended sums remain in the original return registers. Disabled
+accounting preserves incoming return registers as the original does.
+
+The adapter excludes original 16-byte scratch and rejects a value write that
+would alter subsequent owner/global/counter reads before following those sources.
+Counter writes to already-consumed sources retain the original order and remain
+supported. Trials publish nothing on rejection and restore FP state before
+fallback. All original GPR/FPR outputs, LR, condition/carry and control behavior
+are checked. Surrounding gameplay roles and units remain unassigned.
 
 ## Verification
 
@@ -559,6 +605,30 @@ and compare production composition; 432 explicitly exercise a retained outer
 caller with a native nested limit. Only
 the unused 16-byte nested scratch is normalized in those mixed cases. These
 tests do not establish the surrounding gameplay role or every sticky FP status bit.
+
+`percentage_value_equivalence` compares both percentage entries with independent
+retained nested callees in 8,352 cases: 4,783 native and 3,569 complete retained
+chains. Native cases normalize only their untouched full nested scratch; retained
+cases compare every byte and GPR/FPR. Comparisons cover all rounding/starting
+flush modes, signed conversion boundaries, altered constants, carry, both enable
+flags, current-value extremes, unaligned records, prologue/source aliases and
+exact unmasked arithmetic. Flags and percentage fields deliberately overlap
+getter scratch in cases where a mixed retained/native chain changes results.
+Sixteen follow-up probes establish that the scoped retained-chain override does
+not leak into later native calls. Portable fixtures include a double-rounding
+counterexample, negative delta/carry, all clamps, inactive unused sources and
+late transactional rejection.
+
+`native_capped_accumulator` checks editable percentages and cap, signed wrap,
+negative increments, positive saturation, enabled/disabled accounting, 64-bit
+carries, integer rounding and rejected-trial rollback. `capped_accumulator_equivalence`
+compares the actual translation in 2,064 cases, including 1,152 native paths.
+It covers null/disabled/enabled owners, source/stack/write aliases, already-read
+source aliases, pointer wrapping, exceptional sources, late conversion failure,
+directed overflow and exact unmasked cases. All GPR/FPR results and whole fixture
+bytes match, normalizing only the untouched 16-byte scratch on native paths.
+Indirect registration and condition/carry/FP controls also match. These are
+synthetic state checks, not matched-scene gameplay or performance validation.
 
 ## Adding the next module
 

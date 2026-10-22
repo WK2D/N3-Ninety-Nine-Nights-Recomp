@@ -11,7 +11,7 @@ separate from game logic and remain part of the existing development toolchain.
 The codegen partition has 13,762 function assignments across 87 source files.
 Those bodies comprise 13,525 `sub_` routines and 237 named helpers. The runtime
 table adds 151 import mappings, for 13,913 address mappings overall. These
-inventories cover different boundaries. Development currently has 34 typed native
+inventories cover different boundaries. Development currently has 37 typed native
 entry points, grouped below and checked against the retained translations.
 These counts are not
 a percentage of game logic or work completed: functions differ greatly in size,
@@ -25,7 +25,8 @@ translations. Runtime/UI hooks are not counted as complete engine conversions.
 | Vector updates and cached channels | 7 | Explicit three/four-component values |
 | Countdown, scalar, bit and ratio operations | 5 | Counters, arithmetic inputs and bit windows |
 | Delay/mixing and feedback processing | 7 | Taps, gains, histories, cursors and output caches |
-| Table-derived limits and bounded values | 5 | Channel selection, parallel table values, modifier replacement and lower/upper comparisons |
+| Table-derived limits and bounded values | 7 | Channel selection, parallel table values, percentage changes, modifier replacement and lower/upper comparisons |
+| Capped accumulation and accounting | 1 | Scaled increments, signed wrapping/capping and optional total/count state |
 
 [Native contracts and validation](NATIVE-CODE.md) identify the addresses,
 supported inputs, guest adapters and equivalence checks. [Status](STATUS.md)
