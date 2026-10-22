@@ -17,7 +17,7 @@ is identified in [game-build.json](docs/game-build.json).
 
 ## Play the Windows alpha
 
-**[Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.6/N3-Recompiled-v0.1.0-alpha.6-windows-x64.zip)**
+**[Download for Windows (x64)](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/download/v0.1.0-alpha.7/N3-Recompiled-v0.1.0-alpha.7-windows-x64.zip)**
 
 Extract the whole ZIP and run **n3.exe**. Select an ISO made from your own
 disc, or `default.xex` in your own extracted game folder with `data/` beside it.
@@ -34,14 +34,15 @@ folder when updating; replace the application folder with the new release.
 An existing extracted game folder is linked in place. The package contains
 no game assets or original executable. See the [release guide](docs/RELEASE-README.txt).
 
-[Release notes, checksums, and optional developer sources](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/tag/v0.1.0-alpha.6)
+[Release notes, checksums, and optional developer sources](https://github.com/WK2D/N3-Ninety-Nine-Nights-Recomp/releases/tag/v0.1.0-alpha.7)
 are available separately. Only the Windows ZIP is needed to play.
 
-Alpha 6 includes 18 typed native C++ replacements: the frame clock, shape bounds,
-vector updates and cached channels, a frame countdown, scalar arithmetic and bit
-reading. Tests compare them against the retained translated routines. Windows
-still uses Direct3D 12. This engine work does not claim a speedup or fix
-higher-FPS animation timing.
+Alpha 7 includes 26 typed native C++ replacements: the frame clock, shape bounds
+and projections, vector updates and cached channels, a frame countdown, scalar
+arithmetic, bit reading, and fixed-block delay/feedback processing. Tests compare
+them against the retained translated routines. Filtering now uses only numeric
+1x/2x/4x/8x/16x choices. Windows still uses Direct3D 12. This engine work does not
+claim a speedup or fix higher-FPS animation timing.
 
 The emerald N3 icon is embedded in `n3.exe` and appears on the application window
 and Windows shortcuts made from it. To add a desktop shortcut, right-click

@@ -1,4 +1,4 @@
-N3 Recompiled - v0.1.0-alpha.6 (Windows x64)
+N3 Recompiled - v0.1.0-alpha.7 (Windows x64)
 
 GET STARTED
 1. Extract the entire Windows x64 ZIP to a writable folder.
@@ -41,11 +41,12 @@ Select Graphics below Tutorial on the main menu. Up/down selects a row;
 left/right changes its value; B returns. Settings save locally with a brief
 confirmation and remain selected when reopening the page.
 - Frame rate: 30 (default), 40 or 60 FPS.
-- Anisotropic filtering: Game default, Off, 2x, 4x, 8x or 16x.
+- Anisotropic filtering: 1x, 2x, 4x, 8x or 16x.
 - Display resolution: 720p, 1080p, 1440p or 4K window/output size.
 - Render resolution: 720p (1x), 1440p (2x) or 4K (3x) internal rendering.
 - VSync: On or Off, applied to Windows presentation independently of game timing.
-All five controls apply without restarting. Render changes can briefly pause
+1x disables anisotropy. Saved Game default overrides now become 1x; existing
+2x/4x/8x/16x values are retained. All five controls apply without restarting. Render changes can briefly pause
 while GPU resources and shaders are rebuilt. Selecting display size restores a
 maximized/fullscreen window and applies exact physical client dimensions. Large
 windows may extend beyond the desktop. Display size and internal rendering are
@@ -59,16 +60,17 @@ Explicit game-data folders are verified before startup. Import destinations
 must not exist; unsuccessful/cancelled imports clean up their newly created tree.
 
 NATIVE ENGINE MODULES
-This release includes 18 typed native C++ replacements: the frame-clock
-initializer, five sphere/capsule/box bounds helpers, seven vector updates/cached
-channel setters, a frame countdown, scalar addition/subtraction, a bit-window
-reader and ratio-based vector accumulation. Native modules accept explicit
-state and inputs separately from guest registers and memory addresses. Tests
-compare them against retained translated routines, preserving original rounding,
-flags and fallback for unsupported cases. Fifteen Windows suites and portable
-component checks on Windows, Linux and Apple Silicon pass. The playable game
-remains Windows x64 with Direct3D 12. These changes do not establish a speed
-improvement or correct accelerated animations in higher frame-rate modes.
+This release includes 26 typed native C++ replacements: the frame-clock
+initializer, sphere/capsule/box bounds and projections, vector updates and cached
+channel setters, a frame countdown, scalar arithmetic, bit reading, ratio-based
+vector accumulation, and fixed-block delay/feedback processing. Native modules
+accept explicit state and inputs separately from guest registers and memory
+addresses. Tests compare them against retained translated routines, preserving
+original rounding, flags and fallback for unsupported cases. Twenty-three
+Windows suites and ten portable component suites on Windows, Linux and Apple
+Silicon pass. The playable game remains Windows x64 with Direct3D 12. These
+changes do not establish a speed improvement or correct accelerated animations
+in higher frame-rate modes.
 
 ALPHA STATUS
 The first mission, the following cutscene, and writing a save have been exercised

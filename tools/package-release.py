@@ -34,7 +34,7 @@ def check_binary(name, data):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", default="v0.1.0-alpha.6")
+    parser.add_argument("--version", default="v0.1.0-alpha.7")
     args = parser.parse_args()
     if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.]+)?", args.version):
         raise ValueError("Invalid release version")

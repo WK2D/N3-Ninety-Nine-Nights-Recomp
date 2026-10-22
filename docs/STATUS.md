@@ -107,8 +107,7 @@ when opening Graphics. Existing 2x/4x/8x/16x overrides retain their values. The
 RelWithDebInfo build passes all twenty-three suites. A fresh-profile 55-second
 Direct3D graphics audit verifies all five actual sampler limits, all display and
 render presets, and both VSync presentation policies. This is renderer evidence,
-not a visual gameplay or texture-quality comparison. Published Alpha 6 retains
-its previous labels until the next release.
+not a visual gameplay or texture-quality comparison. Alpha 7 packages these numeric choices; Alpha 6 retains its previous labels.
 
 The page also separates display/output size (720p, 1080p, 1440p, 4K) from internal
 rendering (720p/1x, 1440p/2x, 4K/3x). Display changes resize a normal window on the
@@ -506,3 +505,14 @@ Direct3D plugin privacy scans pass in both configurations. These are kernel and
 startup checks, not new listening/gameplay coverage or a speedup measurement.
 Development now has twenty-six typed native entry points; published Alpha 6
 still contains eighteen. Vulkan remains parked.
+
+
+## Alpha 7 distribution
+
+Alpha 7 packages twenty-six typed native engine entries, numeric anisotropic
+filtering choices and the existing embedded N3 icon. It remains Windows x64 with
+Direct3D 12. The native core passes ten portable suites on Windows, Linux and
+Apple Silicon at conversion commit `40ed8d2`; both Windows game configurations
+pass twenty-three suites. The numeric filtering audit verifies actual sampler
+limits from 1x through 16x, display/render dimensions and VSync presentation.
+See the release notes for packaging checks and unchanged gameplay limits.
